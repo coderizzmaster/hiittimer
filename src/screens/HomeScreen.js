@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing, radius, shadow } from '../utils/theme';
+import { spacing, radius, shadow } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
+import EmojiIcon from '../components/EmojiIcon';
 
 const modes = [
   { id: 'tabata', title: 'TABATA', subtitle: 'Quick HIIT (20s/10s)', screen: 'Tabata' },
@@ -14,10 +16,12 @@ const ICONS = { tabata: '⏱', circuit: '⚡', custom: '🎯', saved: '🔖' };
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors);
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.contentWrapper}>
           <View style={{ flex: 1 }} />
@@ -35,7 +39,7 @@ export default function HomeScreen({ navigation }) {
                   activeOpacity={0.75}
                 >
                   <View style={styles.iconCircle}>
-                    <Text style={styles.iconText}>{ICONS[mode.id]}</Text>
+                    <EmojiIcon emoji={ICONS[mode.id]} size={22} />
                   </View>
                   <View style={styles.cardText}>
                     <Text style={styles.cardTitle}>{mode.title}</Text>
@@ -53,34 +57,35 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-  header: { marginBottom: spacing.xl },
-  title: { fontSize: 36, fontWeight: '800', color: colors.text },
-  subtitle: { fontSize: 15, color: colors.textSecondary, marginTop: spacing.xs },
-  contentWrapper: { flex: 1, flexDirection: 'column' },
-  list: { gap: spacing.sm },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    ...shadow.sm,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  iconText: { fontSize: 22 },
-  cardText: { flex: 1 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: 0.5 },
-  cardSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  chevron: { fontSize: 24, color: colors.textMuted, fontWeight: '300' },
-});
+function buildStyles(c) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.background },
+    container: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+    header: { marginBottom: spacing.xl },
+    title: { fontSize: 36, fontWeight: '800', color: c.text },
+    subtitle: { fontSize: 15, color: c.textSecondary, marginTop: spacing.xs },
+    contentWrapper: { flex: 1, flexDirection: 'column' },
+    list: { gap: spacing.sm },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      ...shadow.sm,
+    },
+    iconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.md,
+    },
+    cardText: { flex: 1 },
+    cardTitle: { fontSize: 15, fontWeight: '700', color: c.text, letterSpacing: 0.5 },
+    cardSubtitle: { fontSize: 13, color: c.textSecondary, marginTop: 2 },
+    chevron: { fontSize: 24, color: c.textMuted, fontWeight: '300' },
+  });
+}

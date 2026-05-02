@@ -9,6 +9,7 @@ const DEFAULTS = {
   hapticsEnabled: true,
   countdownCuesEnabled: true,
   keepAwakeEnabled: true,
+  darkMode: false,
 };
 
 const SettingsContext = createContext(null);

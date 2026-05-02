@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, radius, shadow } from '../utils/theme';
+import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
+import { useTheme } from '../context/ThemeContext';
 
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60);
@@ -16,7 +17,7 @@ function workoutTotalTime(w) {
 }
 
 function typeColor(type) {
-  if (type === 'tabata') return colors.primary;
+  if (type === 'tabata') return '#E8472A';
   if (type === 'circuit') return '#4CAF50';
   return '#2196F3';
 }
@@ -28,6 +29,7 @@ function typeLabel(type) {
 }
 
 function TrashIcon() {
+  const { colors } = useTheme();
   return (
     <View style={{ alignItems: 'center' }}>
       <View style={{ width: 6, height: 2, backgroundColor: '#BBBBB8', borderRadius: 1, marginBottom: 1.5 }} />
@@ -36,15 +38,17 @@ function TrashIcon() {
         width: 12, height: 13, borderRadius: 2, backgroundColor: '#BBBBB8',
         flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2.5,
       }}>
-        <View style={{ width: 1.5, height: 8, backgroundColor: colors.background, borderRadius: 1 }} />
-        <View style={{ width: 1.5, height: 8, backgroundColor: colors.background, borderRadius: 1 }} />
-        <View style={{ width: 1.5, height: 8, backgroundColor: colors.background, borderRadius: 1 }} />
+        <View style={{ width: 1.5, height: 8, backgroundColor: colors.surface, borderRadius: 1 }} />
+        <View style={{ width: 1.5, height: 8, backgroundColor: colors.surface, borderRadius: 1 }} />
+        <View style={{ width: 1.5, height: 8, backgroundColor: colors.surface, borderRadius: 1 }} />
       </View>
     </View>
   );
 }
 
 function WorkoutCard({ workout, onStart, onEdit, onDelete }) {
+  const { colors } = useTheme();
+  const styles = buildStyles(colors);
   const label = typeLabel(workout.type);
   const showBadge = label !== 'Custom';
 
@@ -79,6 +83,8 @@ function WorkoutCard({ workout, onStart, onEdit, onDelete }) {
 export default function YourWorkoutsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { savedWorkouts, loadWorkouts, persistDelete } = useWorkout();
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors);
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadWorkouts);
@@ -95,7 +101,7 @@ export default function YourWorkoutsScreen({ navigation, route }) {
   if (savedWorkouts.length === 0) {
     return (
       <View style={[styles.safe, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <View style={styles.navBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
             <Text style={styles.backIcon}>‹</Text>
@@ -117,7 +123,7 @@ export default function YourWorkoutsScreen({ navigation, route }) {
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
@@ -143,46 +149,48 @@ export default function YourWorkoutsScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-  },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 30, color: colors.text, fontWeight: '300', marginTop: -2 },
-  navTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
-  count: { fontSize: 14, color: colors.textSecondary, minWidth: 40, textAlign: 'right' },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
+function buildStyles(c) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.background },
+    navBar: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    },
+    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    backIcon: { fontSize: 30, color: c.text, fontWeight: '300', marginTop: -2 },
+    navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
+    count: { fontSize: 14, color: c.textSecondary, minWidth: 40, textAlign: 'right' },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
 
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, ...shadow.sm },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
-  cardName: { fontSize: 18, fontWeight: '700', color: colors.text, flex: 1, marginRight: spacing.sm },
-  cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
-  typeBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
-  typeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  cardMeta: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+    card: { backgroundColor: c.surface, borderRadius: radius.lg, padding: spacing.md, ...shadow.sm },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
+    cardName: { fontSize: 18, fontWeight: '700', color: c.text, flex: 1, marginRight: spacing.sm },
+    cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
+    typeBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
+    typeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    cardMeta: { fontSize: 13, color: c.primary, fontWeight: '600' },
 
-  cardActions: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
-  editBtn: {
-    paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md,
-    borderRadius: radius.full, backgroundColor: colors.background,
-    borderWidth: 1.5, borderColor: colors.border,
-  },
-  editBtnText: { fontSize: 13, fontWeight: '600', color: colors.text },
-  startBtn: {
-    paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md,
-    borderRadius: radius.full, backgroundColor: colors.primary, ...shadow.sm,
-  },
-  startBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    cardActions: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
+    editBtn: {
+      paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md,
+      borderRadius: radius.full, backgroundColor: c.background,
+      borderWidth: 1.5, borderColor: c.border,
+    },
+    editBtnText: { fontSize: 13, fontWeight: '600', color: c.text },
+    startBtn: {
+      paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md,
+      borderRadius: radius.full, backgroundColor: c.primary, ...shadow.sm,
+    },
+    startBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl * 2 },
-  emptyIcon: { fontSize: 56, marginBottom: spacing.md },
-  emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
-  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl },
-  emptyBtn: {
-    backgroundColor: colors.primary, borderRadius: radius.full,
-    paddingHorizontal: spacing.xl, paddingVertical: spacing.md,
-  },
-  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-});
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl * 2 },
+    emptyIcon: { fontSize: 56, marginBottom: spacing.md },
+    emptyTitle: { fontSize: 17, fontWeight: '600', color: c.text, marginBottom: spacing.sm },
+    emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: spacing.xl },
+    emptyBtn: {
+      backgroundColor: c.primary, borderRadius: radius.full,
+      paddingHorizontal: spacing.xl, paddingVertical: spacing.md,
+    },
+    emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  });
+}

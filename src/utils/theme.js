@@ -1,4 +1,4 @@
-export const colors = {
+export const lightColors = {
   primary: '#E8472A',
   primaryLight: '#FDECEA',
   background: '#F2F2ED',
@@ -12,7 +12,38 @@ export const colors = {
   rest: '#4CAF50',
   yellow: '#FFF8E1',
   yellowText: '#E8472A',
+  // Timer phase backgrounds
+  phaseWork: '#FFF5F4',
+  phaseRest: '#F1F8E9',
+  phaseCountdown: '#EEF2FF',
+  phaseDone: '#FFFBEB',
 };
+
+export const darkColors = {
+  primary: '#FF6B4A',
+  primaryLight: '#3D1814',
+  background: '#111111',
+  surface: '#1C1C1E',
+  surfaceAlt: '#2C2C2E',
+  text: '#F2F2F7',
+  textSecondary: '#8E8E93',
+  textMuted: '#48484A',
+  border: '#38383A',
+  work: '#FF6B4A',
+  rest: '#66BB6A',
+  yellow: '#2A1E00',
+  yellowText: '#FFB74D',
+  // Timer phase backgrounds
+  phaseWork: '#1E1614',
+  phaseRest: '#141E15',
+  phaseCountdown: '#14141F',
+  phaseDone: '#1E1900',
+};
+
+// Keep for any static/non-themed usage
+export const colors = lightColors;
+
+export const getColors = (isDark) => isDark ? darkColors : lightColors;
 
 export const typography = {
   hero: { fontSize: 72, fontWeight: '800', letterSpacing: -2 },

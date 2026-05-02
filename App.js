@@ -1,12 +1,15 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect } from 'react';
+import { View, Platform } from 'react-native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as NavigationBar from 'expo-navigation-bar';
 
 import { WorkoutProvider } from './src/context/WorkoutContext';
 import { SettingsProvider } from './src/context/SettingsContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import HomeScreen from './src/screens/HomeScreen';
 import TabataScreen from './src/screens/TabataScreen';
 import CustomScreen from './src/screens/CustomScreen';
@@ -48,18 +51,58 @@ function MainTabs() {
   );
 }
 
+function AppNavigator() {
+  const { colors, isDark } = useTheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync(colors.surface).catch(() => {});
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+    }
+  }, [colors.surface, isDark]);
+
+  const navTheme = {
+    ...DefaultTheme,
+    dark: isDark,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.primary,
+    },
+  };
+
+  return (
+    <NavigationContainer theme={navTheme}>
+      <MainTabs />
+    </NavigationContainer>
+  );
+}
+
+// Sits inside ThemeProvider but outside SafeAreaProvider so its background
+// fills the full window including the Android gesture-bar strip at the bottom.
+function ThemedRoot({ children }) {
+  const { colors } = useTheme();
+  return <View style={{ flex: 1, backgroundColor: colors.surface }}>{children}</View>;
+}
+
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <SettingsProvider>
-          <WorkoutProvider>
-            <NavigationContainer>
-              <MainTabs />
-            </NavigationContainer>
-          </WorkoutProvider>
-        </SettingsProvider>
-      </SafeAreaProvider>
+      <SettingsProvider>
+        <ThemeProvider>
+          <ThemedRoot>
+            <SafeAreaProvider>
+              <WorkoutProvider>
+                <AppNavigator />
+              </WorkoutProvider>
+            </SafeAreaProvider>
+          </ThemedRoot>
+        </ThemeProvider>
+      </SettingsProvider>
     </GestureHandlerRootView>
   );
 }

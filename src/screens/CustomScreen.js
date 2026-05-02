@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, radius, shadow } from '../utils/theme';
+import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
+import { useTheme } from '../context/ThemeContext';
 
 function formatDuration(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -11,6 +12,8 @@ function formatDuration(totalSeconds) {
 }
 
 function Stepper({ value, min, max, step = 5, onChange, formatValue }) {
+  const { colors } = useTheme();
+  const styles = buildStyles(colors);
   return (
     <View style={styles.stepper}>
       <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(Math.max(min, value - step))} activeOpacity={0.7}>
@@ -25,25 +28,25 @@ function Stepper({ value, min, max, step = 5, onChange, formatValue }) {
 }
 
 function ExerciseCard({ exercise, index, total, onChange, onRemove, onMoveUp, onMoveDown }) {
+  const { colors } = useTheme();
+  const styles = buildStyles(colors);
   return (
     <View style={styles.exCard}>
       <View style={styles.exCardHeader}>
-        <Text style={styles.exCardTitle}>Exercise {index + 1}</Text>
+        <TextInput
+          style={styles.exNameInput}
+          placeholder={`Exercise ${index + 1}`}
+          placeholderTextColor={colors.textMuted}
+          value={exercise.name}
+          onChangeText={text => onChange({ ...exercise, name: text })}
+          returnKeyType="done"
+          maxLength={30}
+        />
         <View style={styles.exCardActions}>
-          <TouchableOpacity
-            onPress={onMoveUp}
-            disabled={index === 0}
-            activeOpacity={0.7}
-            style={styles.arrowBtn}
-          >
+          <TouchableOpacity onPress={onMoveUp} disabled={index === 0} activeOpacity={0.7} style={styles.arrowBtn}>
             <Text style={[styles.arrowText, index === 0 && styles.arrowDisabled]}>↑</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onMoveDown}
-            disabled={index === total - 1}
-            activeOpacity={0.7}
-            style={styles.arrowBtn}
-          >
+          <TouchableOpacity onPress={onMoveDown} disabled={index === total - 1} activeOpacity={0.7} style={styles.arrowBtn}>
             <Text style={[styles.arrowText, index === total - 1 && styles.arrowDisabled]}>↓</Text>
           </TouchableOpacity>
           {onRemove && (
@@ -53,15 +56,6 @@ function ExerciseCard({ exercise, index, total, onChange, onRemove, onMoveUp, on
           )}
         </View>
       </View>
-      <TextInput
-        style={styles.exNameInput}
-        placeholder="Exercise name"
-        placeholderTextColor={colors.textMuted}
-        value={exercise.name}
-        onChangeText={text => onChange({ ...exercise, name: text })}
-        returnKeyType="done"
-        maxLength={30}
-      />
       <View style={styles.exStepperRow}>
         <View style={styles.exStepperGroup}>
           <Text style={styles.exStepperLabel}>Work (sec)</Text>
@@ -77,6 +71,8 @@ function ExerciseCard({ exercise, index, total, onChange, onRemove, onMoveUp, on
 }
 
 function CircRow({ iconChar, iconColor, label, children }) {
+  const { colors } = useTheme();
+  const styles = buildStyles(colors);
   return (
     <View style={styles.circRow}>
       <View style={[styles.circIcon, { backgroundColor: iconColor }]}>
@@ -103,6 +99,8 @@ function buildCircuitExercises(stationCount, workTime, restTime) {
 
 export default function CustomScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors);
   const mode = route?.params?.mode ?? 'custom';
   const prefill = route?.params?.prefill;
   const isCircuit = mode === 'circuit';
@@ -152,7 +150,7 @@ export default function CustomScreen({ navigation, route }) {
   if (isCircuit) {
     return (
       <View style={[styles.safe, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <View style={styles.navBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
             <Text style={styles.backIcon}>‹</Text>
@@ -208,7 +206,7 @@ export default function CustomScreen({ navigation, route }) {
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
@@ -295,93 +293,88 @@ export default function CustomScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-  },
-  backBtn:  { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 30, color: colors.text, fontWeight: '300', marginTop: -2 },
-  navTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
+function buildStyles(c) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.background },
+    navBar: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    },
+    backBtn:  { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    backIcon: { fontSize: 30, color: c.text, fontWeight: '300', marginTop: -2 },
+    navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
 
-  circBody:   { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, justifyContent: 'space-between' },
-  circCenter: { flex: 1, justifyContent: 'center', gap: spacing.md },
-  circCard:   { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden', ...shadow.sm },
-  circRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: 13 },
-  circIcon:   { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginRight: spacing.md },
-  circIconChar: { fontSize: 16, color: '#fff', fontWeight: '600' },
-  circRowLabel: { flex: 1, fontSize: 16, fontWeight: '500', color: colors.text },
-  circDivider:  { height: 1, backgroundColor: colors.border, marginLeft: spacing.md + 36 + spacing.md },
-  circSummary:  { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.md, ...shadow.sm },
-  circSummaryItem:    { flex: 1, alignItems: 'center' },
-  circSummaryDivider: { width: 1, backgroundColor: colors.border },
-  circSummaryValue:   { fontSize: 24, fontWeight: '800', color: colors.primary, marginBottom: 2 },
-  circSummaryLabel:   { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase' },
-  circSummaryUnit:    { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
+    circBody:   { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, justifyContent: 'space-between' },
+    circCenter: { flex: 1, justifyContent: 'center', gap: spacing.md },
+    circCard:   { backgroundColor: c.surface, borderRadius: radius.lg, overflow: 'hidden', ...shadow.sm },
+    circRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: 13 },
+    circIcon:   { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginRight: spacing.md },
+    circIconChar: { fontSize: 16, color: '#fff', fontWeight: '600' },
+    circRowLabel: { flex: 1, fontSize: 16, fontWeight: '500', color: c.text },
+    circDivider:  { height: 1, backgroundColor: c.border, marginLeft: spacing.md + 36 + spacing.md },
+    circSummary:  { flexDirection: 'row', backgroundColor: c.surface, borderRadius: radius.lg, paddingVertical: spacing.md, ...shadow.sm },
+    circSummaryItem:    { flex: 1, alignItems: 'center' },
+    circSummaryDivider: { width: 1, backgroundColor: c.border },
+    circSummaryValue:   { fontSize: 24, fontWeight: '800', color: c.primary, marginBottom: 2 },
+    circSummaryLabel:   { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase' },
+    circSummaryUnit:    { fontSize: 14, fontWeight: '500', color: c.textSecondary },
 
-  container:    { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2 },
-  section:      { marginBottom: spacing.lg },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 1.2, marginBottom: spacing.sm },
+    container:    { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2 },
+    section:      { marginBottom: spacing.lg },
+    sectionLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 1.2, marginBottom: spacing.sm },
 
-  nameInput: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, fontSize: 16, color: colors.text, ...shadow.sm },
+    nameInput: { backgroundColor: c.surface, borderRadius: radius.md, padding: spacing.md, fontSize: 16, color: c.text, ...shadow.sm },
 
-  exCard: {
-    backgroundColor: colors.surface, borderRadius: radius.lg,
-    padding: spacing.md, marginBottom: spacing.sm, ...shadow.sm,
-  },
-  exCardHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  exCardTitle:   { fontSize: 14, fontWeight: '700', color: colors.text },
-  exCardActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    exCard: {
+      backgroundColor: c.surface, borderRadius: radius.lg,
+      padding: spacing.sm, marginBottom: spacing.sm, ...shadow.sm,
+    },
+    exCardHeader:  { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
+    exCardActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
-  arrowBtn:     { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  arrowText:    { fontSize: 18, color: colors.primary, fontWeight: '600' },
-  arrowDisabled:{ color: colors.border },
+    arrowBtn:     { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    arrowText:    { fontSize: 18, color: c.primary, fontWeight: '600' },
+    arrowDisabled:{ color: c.border },
 
-  exRemoveBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
-  removeText:  { fontSize: 16, color: colors.textSecondary },
+    exRemoveBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
+    removeText:  { fontSize: 16, color: c.textSecondary },
 
-  exNameInput: {
-    backgroundColor: colors.background, borderRadius: radius.sm,
-    padding: spacing.sm + 2, fontSize: 15, color: colors.text, marginBottom: spacing.sm,
-  },
-  exStepperRow:   { flexDirection: 'row', justifyContent: 'space-between' },
-  exStepperGroup: { flex: 1, alignItems: 'center' },
-  exStepperLabel: { fontSize: 11, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.xs },
+    exNameInput: {
+      flex: 1, backgroundColor: c.background, borderRadius: radius.sm,
+      paddingHorizontal: spacing.sm, paddingVertical: spacing.xs + 2, fontSize: 14, color: c.text,
+    },
+    exStepperRow:   { flexDirection: 'row', justifyContent: 'space-between' },
+    exStepperGroup: { flex: 1, alignItems: 'center' },
+    exStepperLabel: { fontSize: 11, fontWeight: '600', color: c.textSecondary, marginBottom: spacing.xs },
 
-  addExBtn: {
-    borderWidth: 1.5, borderColor: colors.border, borderStyle: 'dashed',
-    borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  addExBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary, letterSpacing: 0.3 },
+    addExBtn: {
+      borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed',
+      borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center',
+      backgroundColor: c.surface,
+    },
+    addExBtnText: { fontSize: 14, fontWeight: '700', color: c.primary, letterSpacing: 0.3 },
 
-  stepper:         { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  stepBtn:         { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  stepBtnPlus:     { backgroundColor: colors.primaryLight },
-  stepBtnText:     { fontSize: 20, fontWeight: '400', color: colors.primary, lineHeight: 24 },
-  stepBtnPlusText: { color: colors.primary },
-  stepValue:       { fontSize: 16, fontWeight: '700', color: colors.text, minWidth: 28, textAlign: 'center' },
+    stepper:         { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    stepBtn:         { width: 30, height: 30, borderRadius: 15, backgroundColor: c.background, alignItems: 'center', justifyContent: 'center' },
+    stepBtnPlus:     { backgroundColor: c.primaryLight },
+    stepBtnText:     { fontSize: 20, fontWeight: '400', color: c.primary, lineHeight: 24 },
+    stepBtnPlusText: { color: c.primary },
+    stepValue:       { fontSize: 16, fontWeight: '700', color: c.text, minWidth: 28, textAlign: 'center' },
 
-  pairRow:  { flexDirection: 'row', gap: spacing.sm, alignItems: 'stretch' },
-  pairItem: { flex: 1 },
-  pairCard: { backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', justifyContent: 'center', flex: 1, ...shadow.sm },
+    pairRow:  { flexDirection: 'row', gap: spacing.sm, alignItems: 'stretch' },
+    pairItem: { flex: 1 },
+    pairCard: { backgroundColor: c.surface, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', justifyContent: 'center', flex: 1, ...shadow.sm },
 
-  summaryCard:    { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.lg, ...shadow.sm },
-  summaryRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  summaryRowLast: { borderBottomWidth: 0 },
-  summaryLabel:   { fontSize: 14, color: colors.textSecondary },
-  summaryValue:   { fontSize: 16, fontWeight: '700', color: colors.primary },
-
-  saveBtn: {
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.surface, borderRadius: radius.full, paddingVertical: spacing.md,
-    marginBottom: spacing.sm, ...shadow.sm,
-  },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: 0.5 },
-  startBtn: {
-    backgroundColor: colors.primary, borderRadius: radius.full,
-    paddingVertical: spacing.md + 2, alignItems: 'center', ...shadow.md,
-  },
-  startBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
-});
+    saveBtn: {
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.surface, borderRadius: radius.full, paddingVertical: spacing.md,
+      marginBottom: spacing.sm, ...shadow.sm,
+    },
+    saveBtnText: { fontSize: 15, fontWeight: '700', color: c.text, letterSpacing: 0.5 },
+    startBtn: {
+      backgroundColor: c.primary, borderRadius: radius.full,
+      paddingVertical: spacing.md + 2, alignItems: 'center', ...shadow.md,
+    },
+    startBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+  });
+}

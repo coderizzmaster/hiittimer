@@ -3,10 +3,13 @@ import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Easing, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, radius, shadow } from '../utils/theme';
+import { spacing, radius, shadow } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
+import EmojiIcon from '../components/EmojiIcon';
 import { useTimer, buildSequence, totalDuration } from '../hooks/useTimer';
 import { useWorkout } from '../context/WorkoutContext';
 import { useSettings } from '../context/SettingsContext';
+import { playFanfare } from '../utils/beepSound';
 
 function formatTime(s) {
   const m = Math.floor(s / 60);
@@ -17,6 +20,7 @@ function formatTime(s) {
 const COUNTDOWN_COLOR = '#4F46E5';
 
 function CircleTimer({ timeLeft, total, phase }) {
+  const { colors } = useTheme();
   const isWork = phase === 'work';
   const isCountdown = phase === 'countdown';
   const ringColor = isCountdown ? COUNTDOWN_COLOR : isWork ? colors.primary : colors.rest;
@@ -31,12 +35,14 @@ function CircleTimer({ timeLeft, total, phase }) {
     }
   }, [timeLeft, pulse]);
 
+  const circleCenter = isCountdown ? '#EEF2FF' : isWork ? colors.phaseWork : colors.phaseRest;
+
   return (
-    <Animated.View style={[styles.circleContainer, { transform: [{ scale: pulse }] }]}>
-      <View style={[styles.ring, { borderColor: ringColor + '33' }]}>
-        <View style={[styles.ringInner, { borderColor: ringColor }]}>
-          <View style={[styles.circleCenter, { backgroundColor: isCountdown ? '#EEF2FF' : isWork ? colors.primaryLight : '#E8F5E9' }]}>
-            <Text style={[styles.timerDigits, { color: ringColor }]}>{formatTime(timeLeft)}</Text>
+    <Animated.View style={[timerStyles.circleContainer, { transform: [{ scale: pulse }] }]}>
+      <View style={[timerStyles.ring, { borderColor: ringColor + '33' }]}>
+        <View style={[timerStyles.ringInner, { borderColor: ringColor }]}>
+          <View style={[timerStyles.circleCenter, { backgroundColor: circleCenter }]}>
+            <Text style={[timerStyles.timerDigits, { color: ringColor }]}>{formatTime(timeLeft)}</Text>
           </View>
         </View>
       </View>
@@ -124,6 +130,9 @@ function ConfettiBurst() {
 }
 
 function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }) {
+  const { colors, isDark } = useTheme();
+  const { settings } = useSettings();
+  const doneStyles = buildDoneStyles(colors);
   const iconScale = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0.3)).current;
   const glowScale = useRef(new Animated.Value(0.85)).current;
@@ -141,10 +150,11 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }
     .reduce((sum, s) => sum + s.duration, 0);
 
   useEffect(() => {
-    // Celebration haptic burst: three rising pulses
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}), 160);
-    setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 320);
+    if (settings.soundEnabled) playFanfare(settings.soundVolume).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 110);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 220);
+    setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 380);
 
     Animated.loop(
       Animated.sequence([
@@ -181,13 +191,13 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }
 
   return (
     <View style={[doneStyles.screen, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <ConfettiBurst />
 
       <View style={doneStyles.iconSection}>
         <Animated.View style={[doneStyles.glowRing, { opacity: glowOpacity, transform: [{ scale: glowScale }] }]} />
         <Animated.View style={[doneStyles.iconCircle, { transform: [{ scale: iconScale }] }]}>
-          <Text style={doneStyles.trophyIcon}>🏆</Text>
+          <EmojiIcon emoji="🏆" size={60} />
         </Animated.View>
       </View>
 
@@ -232,6 +242,8 @@ export default function TimerScreen({ navigation, route }) {
   const { config } = route.params;
   const { logSession } = useWorkout();
   const { settings } = useSettings();
+  const { colors, isDark } = useTheme();
+  const styles = buildTimerStyles(colors);
   const sequence = useMemo(() => buildSequence(config), []);
   const total = totalDuration(sequence);
   const startTime = useRef(Date.now());
@@ -268,10 +280,13 @@ export default function TimerScreen({ navigation, route }) {
 
   const isWork = currentStep?.phase === 'work';
   const isCountdown = currentStep?.phase === 'countdown';
-  const bgColor = finished ? '#FFFBEB' : isCountdown ? '#EEF2FF' : isWork ? '#FFF5F4' : '#F1F8E9';
+  const bgColor = finished
+    ? colors.phaseDone
+    : isCountdown ? colors.phaseCountdown
+    : isWork ? colors.phaseWork
+    : colors.phaseRest;
   const accentColor = isCountdown ? COUNTDOWN_COLOR : isWork ? colors.primary : colors.rest;
 
-  // Exclude countdown step from remaining time and progress dots
   const workoutSequence = sequence.filter(s => s.phase !== 'countdown');
   const countdownOffset = sequence.length - workoutSequence.length;
   const workoutStepIndex = isCountdown ? -1 : stepIndex - countdownOffset;
@@ -294,7 +309,7 @@ export default function TimerScreen({ navigation, route }) {
 
   return (
     <View style={[styles.safe, { backgroundColor: bgColor, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.closeBtn}>
@@ -358,110 +373,108 @@ export default function TimerScreen({ navigation, route }) {
           <Text style={styles.ctrlIcon}>›</Text>
         </TouchableOpacity>
       </View>
-
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm,
-  },
-  closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  closeIcon: { fontSize: 20, color: colors.text },
-  workoutName: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: colors.text, paddingHorizontal: spacing.sm },
-  phaseRow: { alignItems: 'center', marginTop: spacing.md },
-  phaseBadge: { paddingHorizontal: spacing.lg, paddingVertical: spacing.xs + 2, borderRadius: radius.full },
-  phaseLabel: { color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 1.5 },
-
-  roundText: { textAlign: 'center', fontSize: 14, color: colors.textSecondary, fontWeight: '600', marginTop: spacing.sm },
-  getReadyText: { fontSize: 44, fontWeight: '900', color: COUNTDOWN_COLOR, letterSpacing: -1, marginTop: spacing.xl },
-
-  progressDots: {
-    flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap',
-    paddingHorizontal: spacing.xl, marginTop: spacing.md, gap: 4, maxHeight: 24, overflow: 'hidden',
-  },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotDone: { backgroundColor: colors.textMuted },
-  dotActive: { backgroundColor: colors.primary, width: 12 },
-
+// Static styles unaffected by theme (layout/geometry only)
+const timerStyles = StyleSheet.create({
   circleContainer: { alignItems: 'center', marginTop: spacing.lg },
   ring: { width: 220, height: 220, borderRadius: 110, borderWidth: 20, alignItems: 'center', justifyContent: 'center' },
   ringInner: { width: 180, height: 180, borderRadius: 90, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
   circleCenter: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center' },
   timerDigits: { fontSize: 52, fontWeight: '800', letterSpacing: -2 },
-
-  totalCard: { alignItems: 'center', marginTop: spacing.lg },
-  totalLabel: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 1.2, marginBottom: 4 },
-  totalValue: { fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -1 },
-
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xl, marginTop: spacing.xl },
-  ctrlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.sm },
-  ctrlIcon: { fontSize: 28, color: colors.text },
-  playBtn: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', ...shadow.md },
-  playIcon: { fontSize: 34, fontWeight: '900', color: '#fff' },
-
 });
 
-const doneStyles = StyleSheet.create({
-  screen: {
-    flex: 1, backgroundColor: '#FFFBEB',
-    alignItems: 'center', justifyContent: 'space-evenly',
-    paddingHorizontal: spacing.lg,
-  },
+function buildTimerStyles(c) {
+  return StyleSheet.create({
+    safe: { flex: 1 },
+    navBar: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm,
+    },
+    closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    closeIcon: { fontSize: 20, color: c.text },
+    workoutName: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: c.text, paddingHorizontal: spacing.sm },
 
-  iconSection: { alignItems: 'center', justifyContent: 'center', width: 200, height: 200 },
-  glowRing: {
-    position: 'absolute',
-    width: 190, height: 190, borderRadius: 95,
-    backgroundColor: AMBER + '28',
-    borderWidth: 2, borderColor: AMBER + '55',
-  },
-  iconCircle: {
-    width: 130, height: 130, borderRadius: 65,
-    backgroundColor: AMBER,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: AMBER,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 20,
-    elevation: 14,
-  },
-  trophyIcon: { fontSize: 60 },
+    roundText: { textAlign: 'center', fontSize: 14, color: c.textSecondary, fontWeight: '600', marginTop: spacing.sm },
+    getReadyText: { fontSize: 44, fontWeight: '900', color: COUNTDOWN_COLOR, letterSpacing: -1, marginTop: spacing.xl },
 
-  title: {
-    fontSize: 46, fontWeight: '900', color: colors.text,
-    textAlign: 'center', letterSpacing: -1.5, lineHeight: 50,
-    marginBottom: spacing.xs,
-  },
-  subtitle: { fontSize: 15, color: colors.textSecondary, fontWeight: '600', textAlign: 'center', marginTop: 4 },
-  quote: {
-    fontSize: 14, color: '#78716C', fontStyle: 'italic',
-    textAlign: 'center', paddingHorizontal: spacing.lg, lineHeight: 22,
-  },
+    progressDots: {
+      flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap',
+      paddingHorizontal: spacing.xl, marginTop: spacing.md, gap: 4, maxHeight: 24, overflow: 'hidden',
+    },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.border },
+    dotDone: { backgroundColor: c.textMuted },
+    dotActive: { backgroundColor: c.primary, width: 12 },
 
-  statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
-  statCard: {
-    flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg,
-    paddingVertical: spacing.md + 4, alignItems: 'center', ...shadow.sm,
-  },
-  statCardMid: { borderWidth: 2, borderColor: AMBER + '55' },
-  statValue: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
-  statLabel: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginTop: 4, letterSpacing: 0.8 },
+    totalCard: { alignItems: 'center', marginTop: spacing.lg },
+    totalLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 1.2, marginBottom: 4 },
+    totalValue: { fontSize: 28, fontWeight: '800', color: c.text, letterSpacing: -1 },
 
-  btns: { width: '100%', alignItems: 'center', gap: spacing.sm },
-  doneBtn: {
-    width: '100%', backgroundColor: AMBER, borderRadius: radius.full,
-    paddingVertical: spacing.md + 6, alignItems: 'center',
-    shadowColor: AMBER,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  doneBtnText: { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 1 },
-  repeatBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.xl },
-  repeatBtnText: { fontSize: 15, color: colors.textSecondary, fontWeight: '600' },
-});
+    controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xl, marginTop: spacing.xl },
+    ctrlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', ...shadow.sm },
+    ctrlIcon: { fontSize: 28, color: c.text },
+    playBtn: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', ...shadow.md },
+    playIcon: { fontSize: 34, fontWeight: '900', color: '#fff' },
+  });
+}
+
+function buildDoneStyles(c) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1, backgroundColor: c.phaseDone,
+      alignItems: 'center', justifyContent: 'space-evenly',
+      paddingHorizontal: spacing.lg,
+    },
+    iconSection: { alignItems: 'center', justifyContent: 'center', width: 200, height: 200 },
+    glowRing: {
+      position: 'absolute',
+      width: 190, height: 190, borderRadius: 95,
+      backgroundColor: AMBER + '28',
+      borderWidth: 2, borderColor: AMBER + '55',
+    },
+    iconCircle: {
+      width: 130, height: 130, borderRadius: 65,
+      backgroundColor: AMBER,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: AMBER,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.55,
+      shadowRadius: 20,
+      elevation: 14,
+    },
+    title: {
+      fontSize: 46, fontWeight: '900', color: c.text,
+      textAlign: 'center', letterSpacing: -1.5, lineHeight: 50,
+      marginBottom: spacing.xs,
+    },
+    subtitle: { fontSize: 15, color: c.textSecondary, fontWeight: '600', textAlign: 'center', marginTop: 4 },
+    quote: {
+      fontSize: 14, color: c.textSecondary, fontStyle: 'italic',
+      textAlign: 'center', paddingHorizontal: spacing.lg, lineHeight: 22,
+    },
+    statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
+    statCard: {
+      flex: 1, backgroundColor: c.surface, borderRadius: radius.lg,
+      paddingVertical: spacing.md + 4, alignItems: 'center', ...shadow.sm,
+    },
+    statCardMid: { borderWidth: 2, borderColor: AMBER + '55' },
+    statValue: { fontSize: 24, fontWeight: '800', color: c.text, letterSpacing: -0.5 },
+    statLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, marginTop: 4, letterSpacing: 0.8 },
+
+    btns: { width: '100%', alignItems: 'center', gap: spacing.sm },
+    doneBtn: {
+      width: '100%', backgroundColor: AMBER, borderRadius: radius.full,
+      paddingVertical: spacing.md + 6, alignItems: 'center',
+      shadowColor: AMBER,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.45,
+      shadowRadius: 14,
+      elevation: 10,
+    },
+    doneBtnText: { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 1 },
+    repeatBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.xl },
+    repeatBtnText: { fontSize: 15, color: c.textSecondary, fontWeight: '600' },
+  });
+}
