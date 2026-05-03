@@ -19,6 +19,20 @@ export function buildSequence(config) {
         seq.push({ phase: 'rest', duration: config.restTime, round: r + 1, totalRounds: config.rounds, label: 'REST' });
       }
     }
+  } else if (config.type === 'emom') {
+    const exercises = config.exercises || [];
+    for (let r = 0; r < config.rounds; r++) {
+      exercises.forEach((ex, i) => {
+        seq.push({
+          phase: 'work',
+          duration: 60,
+          round: r + 1,
+          totalRounds: config.rounds,
+          label: ex.name || `Exercise ${i + 1}`,
+          exerciseIndex: i,
+        });
+      });
+    }
   } else if (config.type === 'circuit' || config.type === 'custom') {
     const exercises = config.exercises || [];
     for (let r = 0; r < config.rounds; r++) {
@@ -81,10 +95,12 @@ export function useTimer(sequence, onComplete, autoStart = false) {
   const soundVolumeRef = useRef(settings.soundVolume);
   const hapticsEnabledRef = useRef(settings.hapticsEnabled);
   const countdownCuesEnabledRef = useRef(settings.countdownCuesEnabled);
+  const pauseOnBackgroundRef = useRef(settings.pauseOnBackground);
   soundEnabledRef.current = settings.soundEnabled;
   soundVolumeRef.current = settings.soundVolume;
   hapticsEnabledRef.current = settings.hapticsEnabled;
   countdownCuesEnabledRef.current = settings.countdownCuesEnabled;
+  pauseOnBackgroundRef.current = settings.pauseOnBackground;
 
   useEffect(() => {
     prepareBeep();
@@ -94,7 +110,11 @@ export function useTimer(sequence, onComplete, autoStart = false) {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'background' || nextState === 'inactive') {
         if (runningRef.current && !finishedRef.current) {
-          backgroundTimestampRef.current = Date.now();
+          if (pauseOnBackgroundRef.current) {
+            setRunning(false);
+          } else {
+            backgroundTimestampRef.current = Date.now();
+          }
         }
       } else if (nextState === 'active') {
         if (backgroundTimestampRef.current !== null) {
@@ -142,6 +162,7 @@ export function useTimer(sequence, onComplete, autoStart = false) {
         // no haptic when countdown starts — ticks handle it
       } else {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        if (soundEnabledRef.current) playBeep(soundVolumeRef.current);
       }
     } catch {}
   }, []);

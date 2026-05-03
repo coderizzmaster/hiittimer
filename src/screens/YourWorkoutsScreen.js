@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
 import { useTheme } from '../context/ThemeContext';
@@ -16,64 +17,58 @@ function workoutTotalTime(w) {
   return (w.exercises || []).reduce((s, ex) => s + ex.workTime + ex.restTime, 0) * w.rounds;
 }
 
-function typeColor(type) {
-  if (type === 'tabata') return '#E8472A';
-  if (type === 'circuit') return '#4CAF50';
-  return '#2196F3';
+function workoutMins(w) {
+  return Math.round(workoutTotalTime(w) / 60) || 1;
 }
 
-function typeLabel(type) {
-  if (type === 'tabata') return 'Tabata';
-  if (type === 'circuit') return 'Circuit';
-  return 'Custom';
-}
 
-function TrashIcon() {
-  const { colors } = useTheme();
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <View style={{ width: 6, height: 2, backgroundColor: '#BBBBB8', borderRadius: 1, marginBottom: 1.5 }} />
-      <View style={{ width: 14, height: 2, backgroundColor: '#BBBBB8', borderRadius: 1, marginBottom: 1.5 }} />
-      <View style={{
-        width: 12, height: 13, borderRadius: 2, backgroundColor: '#BBBBB8',
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2.5,
-      }}>
-        <View style={{ width: 1.5, height: 8, backgroundColor: colors.surface, borderRadius: 1 }} />
-        <View style={{ width: 1.5, height: 8, backgroundColor: colors.surface, borderRadius: 1 }} />
-        <View style={{ width: 1.5, height: 8, backgroundColor: colors.surface, borderRadius: 1 }} />
-      </View>
-    </View>
-  );
-}
 
-function WorkoutCard({ workout, onStart, onEdit, onDelete }) {
-  const { colors } = useTheme();
+const TYPE_ACCENT = {
+  tabata:  { accent: '#E8472A', lightBg: '#FFF5F4', darkBg: '#2D1A16' },
+  emom:    { accent: '#059669', lightBg: '#F0FDF4', darkBg: '#14201B' },
+  circuit: { accent: '#0284C7', lightBg: '#F0F9FF', darkBg: '#142030' },
+  custom:  { accent: '#F97316', lightBg: '#FFF7ED', darkBg: '#271A0A' },
+};
+
+function WorkoutCard({ workout, onStart, onEdit }) {
+  const { colors, isDark } = useTheme();
   const styles = buildStyles(colors);
-  const label = typeLabel(workout.type);
-  const showBadge = label !== 'Custom';
+  const mins = workoutMins(workout);
+  const exCount = workout.exercises?.length ?? null;
+  const { accent, lightBg, darkBg } = TYPE_ACCENT[workout.type] ?? TYPE_ACCENT.custom;
+  const cardBg = isDark ? darkBg : lightBg;
 
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardName}>{workout.name}</Text>
-        <TouchableOpacity onPress={onDelete} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <TrashIcon />
+    <View style={[styles.card, { backgroundColor: cardBg, borderColor: accent }]}>
+      <View style={styles.cardTop}>
+        <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>{workout.name}</Text>
+        <TouchableOpacity onPress={onEdit} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
-      <View style={styles.cardMetaRow}>
-        {showBadge && (
-          <View style={[styles.typeBadge, { backgroundColor: typeColor(workout.type) + '22' }]}>
-            <Text style={[styles.typeText, { color: typeColor(workout.type) }]}>{label}</Text>
-          </View>
+
+      <View style={styles.statsRow}>
+        <View style={styles.stat}>
+          <Text style={[styles.statVal, { color: accent }]}>{workout.rounds}</Text>
+          <Text style={styles.statLbl}>Rounds</Text>
+        </View>
+        <View style={[styles.statDivider, { backgroundColor: accent, opacity: 0.25 }]} />
+        <View style={styles.stat}>
+          <Text style={[styles.statVal, { color: accent }]}>{mins} min</Text>
+          <Text style={styles.statLbl}>Duration</Text>
+        </View>
+        {exCount !== null && (
+          <>
+            <View style={[styles.statDivider, { backgroundColor: accent, opacity: 0.25 }]} />
+            <View style={styles.stat}>
+              <Text style={[styles.statVal, { color: accent }]}>{exCount}</Text>
+              <Text style={styles.statLbl}>Exercises</Text>
+            </View>
+          </>
         )}
-        <Text style={styles.cardMeta}>{workout.rounds} rounds · {formatDuration(workoutTotalTime(workout))}</Text>
-      </View>
-      <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.editBtn} onPress={onEdit} activeOpacity={0.8}>
-          <Text style={styles.editBtnText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.startBtn} onPress={onStart} activeOpacity={0.85}>
-          <Text style={styles.startBtnText}>▶  Start</Text>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity style={[styles.startBtn, { backgroundColor: accent }]} onPress={onStart} activeOpacity={0.85}>
+          <Text style={styles.startBtnText}>START</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -82,7 +77,7 @@ function WorkoutCard({ workout, onStart, onEdit, onDelete }) {
 
 export default function YourWorkoutsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { savedWorkouts, loadWorkouts, persistDelete } = useWorkout();
+  const { savedWorkouts, loadWorkouts } = useWorkout();
   const { colors, isDark } = useTheme();
   const styles = buildStyles(colors);
 
@@ -90,13 +85,6 @@ export default function YourWorkoutsScreen({ navigation, route }) {
     const unsub = navigation.addListener('focus', loadWorkouts);
     return unsub;
   }, [navigation, loadWorkouts]);
-
-  function handleDelete(id, name) {
-    Alert.alert('Delete Workout', `Delete "${name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => persistDelete(id) },
-    ]);
-  }
 
   if (savedWorkouts.length === 0) {
     return (
@@ -141,7 +129,6 @@ export default function YourWorkoutsScreen({ navigation, route }) {
             workout={item}
             onStart={() => navigation.navigate('WorkoutTimer', { config: { ...item } })}
             onEdit={() => navigation.navigate('Custom', { prefill: item, mode: item.type })}
-            onDelete={() => handleDelete(item.id, item.name)}
           />
         )}
       />
@@ -162,26 +149,28 @@ function buildStyles(c) {
     count: { fontSize: 14, color: c.textSecondary, minWidth: 40, textAlign: 'right' },
     list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
 
-    card: { backgroundColor: c.surface, borderRadius: radius.lg, padding: spacing.md, ...shadow.sm },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
-    cardName: { fontSize: 18, fontWeight: '700', color: c.text, flex: 1, marginRight: spacing.sm },
-    cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
-    typeBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
-    typeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-    cardMeta: { fontSize: 13, color: c.primary, fontWeight: '600' },
+    card: {
+      borderRadius: radius.lg, ...shadow.sm,
+      padding: spacing.md,
+      borderWidth: 1.5,
+    },
+    cardTop: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: spacing.sm, marginBottom: spacing.xs,
+    },
+    cardName: { fontSize: 15, fontWeight: '800', flex: 1 },
 
-    cardActions: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
-    editBtn: {
-      paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md,
-      borderRadius: radius.full, backgroundColor: c.background,
-      borderWidth: 1.5, borderColor: c.border,
-    },
-    editBtnText: { fontSize: 13, fontWeight: '600', color: c.text },
+    statsRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+    stat: { alignItems: 'center' },
+    statVal: { fontSize: 15, fontWeight: '800' },
+    statLbl: { fontSize: 10, fontWeight: '600', color: c.textMuted, marginTop: 1, letterSpacing: 0.5 },
+    statDivider: { width: 1, height: 26 },
+
     startBtn: {
-      paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md,
-      borderRadius: radius.full, backgroundColor: c.primary, ...shadow.sm,
+      paddingVertical: 4, paddingHorizontal: 14,
+      borderRadius: radius.full,
     },
-    startBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    startBtnText: { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.8 },
 
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl * 2 },
     emptyIcon: { fontSize: 56, marginBottom: spacing.md },

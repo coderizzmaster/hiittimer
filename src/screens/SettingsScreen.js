@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, StatusBar, Animated } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, shadow } from '../utils/theme';
@@ -65,8 +66,8 @@ function AnimatedSwitch({ value, onValueChange }) {
 const THUMB = 22;
 
 function VolumeSlider({ value, onChange }) {
-  const { colors } = useTheme();
-  const styles = buildStyles(colors);
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors, isDark);
   const [trackW, setTrackW] = useState(0);
   const trackWRef = useRef(0);
   const trackPageXRef = useRef(0);
@@ -115,8 +116,8 @@ function VolumeSlider({ value, onChange }) {
 
 // ── Shared row / section components ──────────────────────────────────────────
 function SettingRow({ label, subtitle, right }) {
-  const { colors } = useTheme();
-  const styles = buildStyles(colors);
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors, isDark);
   return (
     <View style={styles.row}>
       <View style={styles.rowLeft}>
@@ -129,8 +130,8 @@ function SettingRow({ label, subtitle, right }) {
 }
 
 function Section({ title, children }) {
-  const { colors } = useTheme();
-  const styles = buildStyles(colors);
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors, isDark);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -144,7 +145,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
   const { colors, isDark } = useTheme();
-  const styles = buildStyles(colors);
+  const styles = buildStyles(colors, isDark);
 
   useEffect(() => { prepareBeep(); }, []);
 
@@ -188,7 +189,7 @@ export default function SettingsScreen() {
                     />
                   </View>
                   <TouchableOpacity style={styles.testBtn} onPress={handleTest} activeOpacity={0.7}>
-                    <Text style={styles.testBtnText}>▶  Test</Text>
+                    <Ionicons name="volume-high-outline" size={18} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -243,6 +244,19 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        <Section title="WORKOUT">
+          <SettingRow
+            label="Pause on background"
+            subtitle="Pause timer when you leave the app"
+            right={
+              <AnimatedSwitch
+                value={settings.pauseOnBackground ?? false}
+                onValueChange={v => updateSettings({ pauseOnBackground: v })}
+              />
+            }
+          />
+        </Section>
+
         <View style={styles.versionContainer}>
           <Text style={styles.versionText}>v1.0.0</Text>
         </View>
@@ -251,7 +265,7 @@ export default function SettingsScreen() {
   );
 }
 
-function buildStyles(c) {
+function buildStyles(c, isDark) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     container: { flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
@@ -260,7 +274,7 @@ function buildStyles(c) {
 
     section: { marginBottom: 12 },
     sectionTitle: { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 1.2, marginBottom: 5 },
-    sectionCard: { backgroundColor: c.surface, borderRadius: radius.lg, paddingHorizontal: spacing.md, ...shadow.sm },
+    sectionCard: { backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.lg, paddingHorizontal: spacing.md, ...shadow.sm },
 
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
     rowLeft: { flex: 1, marginRight: spacing.md },
@@ -289,15 +303,12 @@ function buildStyles(c) {
       gap: spacing.sm,
     },
     testBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.md,
       backgroundColor: c.primaryLight,
-      borderRadius: radius.full,
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-    },
-    testBtnText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     // ── Slider ────────────────────────────────────────────────────────────────

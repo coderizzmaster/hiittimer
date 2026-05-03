@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Easing, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useTheme } from '../context/ThemeContext';
 import EmojiIcon from '../components/EmojiIcon';
@@ -132,7 +133,7 @@ function ConfettiBurst() {
 function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }) {
   const { colors, isDark } = useTheme();
   const { settings } = useSettings();
-  const doneStyles = buildDoneStyles(colors);
+  const doneStyles = buildDoneStyles(colors, isDark);
   const iconScale = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0.3)).current;
   const glowScale = useRef(new Animated.Value(0.85)).current;
@@ -328,11 +329,9 @@ export default function TimerScreen({ navigation, route }) {
         {isCountdown ? 'GET READY!' : isWork ? (currentStep?.label ?? 'WORK') : 'REST'}
       </Text>
 
-      {!isCountdown && (
-        <Text style={styles.roundText}>
-          {`Round ${currentStep?.round ?? '—'} of ${currentStep?.totalRounds ?? config.rounds}`}
-        </Text>
-      )}
+      <Text style={styles.roundText}>
+        {isCountdown ? '' : `Round ${currentStep?.round ?? '—'} of ${currentStep?.totalRounds ?? config.rounds}`}
+      </Text>
 
       <View style={styles.progressDots}>
         {workoutSequence.map((_, i) => (
@@ -360,17 +359,17 @@ export default function TimerScreen({ navigation, route }) {
           )}
           activeOpacity={0.7}
         >
-          <Text style={styles.ctrlIcon}>↺</Text>
+          <Ionicons name="refresh" size={24} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.playBtn, { backgroundColor: accentColor }]}
           onPress={running ? pause : start}
           activeOpacity={0.85}
         >
-          <Text style={styles.playIcon}>{running ? '| |' : '▶'}</Text>
+          <Ionicons name={running ? 'pause' : 'play'} size={32} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.ctrlBtn} onPress={skip} activeOpacity={0.7}>
-          <Text style={styles.ctrlIcon}>›</Text>
+          <Ionicons name="play-skip-forward" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
     </View>
@@ -388,7 +387,7 @@ const timerStyles = StyleSheet.create({
 
 function buildTimerStyles(c) {
   return StyleSheet.create({
-    safe: { flex: 1 },
+    safe: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     navBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm,
@@ -397,8 +396,8 @@ function buildTimerStyles(c) {
     closeIcon: { fontSize: 20, color: c.text },
     workoutName: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: c.text, paddingHorizontal: spacing.sm },
 
-    roundText: { textAlign: 'center', fontSize: 14, color: c.textSecondary, fontWeight: '600', marginTop: spacing.sm },
-    getReadyText: { fontSize: 44, fontWeight: '900', color: COUNTDOWN_COLOR, letterSpacing: -1, marginTop: spacing.xl },
+    roundText: { textAlign: 'center', fontSize: 14, color: c.textSecondary, fontWeight: '600', marginTop: spacing.sm, height: 20, lineHeight: 20 },
+    getReadyText: { fontSize: 44, fontWeight: '900', color: COUNTDOWN_COLOR, letterSpacing: -1, marginTop: spacing.xl, height: 52, lineHeight: 52 },
 
     progressDots: {
       flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap',
@@ -413,14 +412,12 @@ function buildTimerStyles(c) {
     totalValue: { fontSize: 28, fontWeight: '800', color: c.text, letterSpacing: -1 },
 
     controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xl, marginTop: spacing.xl },
-    ctrlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', ...shadow.sm },
-    ctrlIcon: { fontSize: 28, color: c.text },
+    ctrlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.sm },
     playBtn: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', ...shadow.md },
-    playIcon: { fontSize: 34, fontWeight: '900', color: '#fff' },
   });
 }
 
-function buildDoneStyles(c) {
+function buildDoneStyles(c, isDark) {
   return StyleSheet.create({
     screen: {
       flex: 1, backgroundColor: c.phaseDone,
@@ -456,7 +453,7 @@ function buildDoneStyles(c) {
     },
     statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
     statCard: {
-      flex: 1, backgroundColor: c.surface, borderRadius: radius.lg,
+      flex: 1, backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.lg,
       paddingVertical: spacing.md + 4, alignItems: 'center', ...shadow.sm,
     },
     statCardMid: { borderWidth: 2, borderColor: AMBER + '55' },

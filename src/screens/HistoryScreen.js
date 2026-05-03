@@ -16,27 +16,30 @@ function formatTime(s) {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-function typeColor(type) {
-  if (type === 'tabata') return '#E8472A';
-  if (type === 'circuit') return '#4CAF50';
-  return '#2196F3';
-}
+const ORANGE = '#F97316';
 
 function HistoryCard({ item }) {
-  const { colors } = useTheme();
-  const styles = buildStyles(colors);
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors, isDark);
+
   return (
     <View style={styles.card}>
-      <View style={styles.cardLeft}>
-        <View style={[styles.dot, { backgroundColor: typeColor(item.type) }]} />
-        <View>
-          <Text style={styles.cardName}>{item.name}</Text>
+      <View style={styles.cardRow}>
+        <View style={styles.cardLeft}>
+          <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.cardDate}>{formatDate(item.completedAt)}</Text>
         </View>
-      </View>
-      <View style={styles.cardRight}>
-        <Text style={styles.cardDuration}>{formatTime(item.duration)}</Text>
-        <Text style={styles.cardRounds}>{item.rounds} rounds</Text>
+        <View style={styles.cardRight}>
+          <View style={styles.stat}>
+            <Text style={styles.statVal}>{formatTime(item.duration)}</Text>
+            <Text style={styles.statLbl}>Duration</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.stat}>
+            <Text style={styles.statVal}>{item.rounds}</Text>
+            <Text style={styles.statLbl}>Rounds</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -46,7 +49,7 @@ export default function HistoryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { history, loadHistory, wipeHistory } = useWorkout();
   const { colors, isDark } = useTheme();
-  const styles = buildStyles(colors);
+  const styles = buildStyles(colors, isDark);
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadHistory);
@@ -89,15 +92,15 @@ export default function HistoryScreen({ navigation }) {
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{history.length}</Text>
-          <Text style={styles.statLabel}>Workouts</Text>
+          <Text style={styles.statLabel}>Workouts completed</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{formatTime(history.reduce((s, h) => s + (h.duration || 0), 0))}</Text>
-          <Text style={styles.statLabel}>Total time</Text>
+          <Text style={styles.statLabel}>Minutes worked out</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{history.reduce((s, h) => s + (h.rounds || 0), 0)}</Text>
-          <Text style={styles.statLabel}>Rounds</Text>
+          <Text style={styles.statLabel}>Exercises done</Text>
         </View>
       </View>
 
@@ -112,7 +115,7 @@ export default function HistoryScreen({ navigation }) {
   );
 }
 
-function buildStyles(c) {
+function buildStyles(c, isDark) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     header: {
@@ -124,24 +127,23 @@ function buildStyles(c) {
 
     statsRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.md },
     statCard: {
-      flex: 1, backgroundColor: c.surface, borderRadius: radius.md,
+      flex: 1, backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.md,
       padding: spacing.md, alignItems: 'center', ...shadow.sm,
     },
     statValue: { fontSize: 20, fontWeight: '800', color: c.text },
-    statLabel: { fontSize: 11, color: c.textSecondary, marginTop: 2 },
+    statLabel: { fontSize: 10, color: c.textSecondary, marginTop: 2, textAlign: 'center' },
 
     list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
-    card: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      backgroundColor: c.surface, borderRadius: radius.md, padding: spacing.md, ...shadow.sm,
-    },
-    cardLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    dot: { width: 10, height: 10, borderRadius: 5 },
-    cardName: { fontSize: 15, fontWeight: '600', color: c.text },
-    cardDate: { fontSize: 12, color: c.textSecondary, marginTop: 2 },
-    cardRight: { alignItems: 'flex-end' },
-    cardDuration: { fontSize: 15, fontWeight: '700', color: c.text },
-    cardRounds: { fontSize: 12, color: c.textSecondary, marginTop: 2 },
+    card: { borderRadius: radius.lg, ...shadow.sm, padding: spacing.md, borderWidth: 1.5, backgroundColor: isDark ? c.surface : '#fff', borderColor: ORANGE },
+    cardRow: { flexDirection: 'row', alignItems: 'center' },
+    cardLeft: { flex: 1, marginRight: spacing.md },
+    cardName: { fontSize: 15, fontWeight: '800' },
+    cardDate: { fontSize: 12, color: c.textMuted, fontWeight: '500', marginTop: 2 },
+    cardRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    stat: { alignItems: 'center' },
+    statVal: { fontSize: 15, fontWeight: '800', color: ORANGE },
+    statLbl: { fontSize: 10, fontWeight: '600', color: c.textMuted, marginTop: 1, letterSpacing: 0.5 },
+    statDivider: { width: 1, height: 26, backgroundColor: ORANGE, opacity: 0.25 },
 
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl * 2 },
     emptyIcon: { marginBottom: spacing.md },

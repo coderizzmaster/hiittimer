@@ -10,6 +10,7 @@ const DEFAULTS = {
   countdownCuesEnabled: true,
   keepAwakeEnabled: true,
   darkMode: false,
+  pauseOnBackground: false,
 };
 
 const SettingsContext = createContext(null);

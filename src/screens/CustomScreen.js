@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
 import { useTheme } from '../context/ThemeContext';
@@ -114,7 +115,7 @@ export default function CustomScreen({ navigation, route }) {
   const [circuitWorkTime, setCircuitWorkTime] = useState(prefill?.exercises?.[0]?.workTime ?? 40);
   const [circuitRestTime, setCircuitRestTime] = useState(prefill?.exercises?.[0]?.restTime ?? 20);
 
-  const { persistSave } = useWorkout();
+  const { persistSave, persistDelete } = useWorkout();
 
   function getExercises() {
     return isCircuit ? buildCircuitExercises(stationCount, circuitWorkTime, circuitRestTime) : exercises;
@@ -139,12 +140,40 @@ export default function CustomScreen({ navigation, route }) {
   async function handleSave() {
     const workout = { id: prefill?.id ?? String(Date.now()), name: workoutName || 'My Workout', type: mode, exercises: resolvedExercises, rounds, countdownTime };
     await persistSave(workout);
-    Alert.alert('Saved!', `"${workout.name}" has been saved.`);
+    Alert.alert('Saved!', `"${workout.name}" has been saved.`, [
+      { text: 'OK', onPress: () => navigation.navigate('YourWorkouts') },
+    ]);
+  }
+
+  function handleDelete() {
+    Alert.alert('Delete Workout', `Delete "${prefill.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        await persistDelete(prefill.id);
+        navigation.goBack();
+      }},
+    ]);
   }
 
   function handleStart() {
     const name = isCircuit ? 'Circuit' : (workoutName || 'My Workout');
-    navigation.navigate('WorkoutTimer', { config: { type: mode, name, exercises: resolvedExercises, rounds, countdownTime } });
+    const go = () => navigation.navigate('WorkoutTimer', { config: { type: mode, name, exercises: resolvedExercises, rounds, countdownTime } });
+
+    if (prefill) { go(); return; }
+
+    Alert.alert(
+      'Save your workout?',
+      'Do you want to save this workout before starting?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Start without saving', onPress: go },
+        { text: 'Save & Start', onPress: async () => {
+          const workout = { id: String(Date.now()), name: workoutName || 'My Workout', type: mode, exercises: resolvedExercises, rounds, countdownTime };
+          await persistSave(workout);
+          go();
+        }},
+      ]
+    );
   }
 
   if (isCircuit) {
@@ -156,7 +185,11 @@ export default function CustomScreen({ navigation, route }) {
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle}>Circuit</Text>
-          <View style={{ width: 40 }} />
+          {prefill ? (
+            <TouchableOpacity onPress={handleDelete} style={styles.trashBtn} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={20} color="#E8472A" />
+            </TouchableOpacity>
+          ) : <View style={{ width: 40 }} />}
         </View>
 
         <View style={[styles.circBody, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -211,8 +244,12 @@ export default function CustomScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Build Workout</Text>
-        <View style={{ width: 40 }} />
+        <Text style={styles.navTitle}>{prefill ? 'Edit Workout' : 'Build Workout'}</Text>
+        {prefill ? (
+          <TouchableOpacity onPress={handleDelete} style={styles.trashBtn} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={20} color="#E8472A" />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
       </View>
 
       <ScrollView
@@ -303,6 +340,7 @@ function buildStyles(c) {
     backBtn:  { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
     backIcon: { fontSize: 30, color: c.text, fontWeight: '300', marginTop: -2 },
     navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
+    trashBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
     circBody:   { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, justifyContent: 'space-between' },
     circCenter: { flex: 1, justifyContent: 'center', gap: spacing.md },
@@ -363,7 +401,7 @@ function buildStyles(c) {
 
     pairRow:  { flexDirection: 'row', gap: spacing.sm, alignItems: 'stretch' },
     pairItem: { flex: 1 },
-    pairCard: { backgroundColor: c.surface, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', justifyContent: 'center', flex: 1, ...shadow.sm },
+    pairCard: { backgroundColor: c.surface, borderRadius: radius.lg, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flex: 1, ...shadow.sm },
 
     saveBtn: {
       alignItems: 'center', justifyContent: 'center',

@@ -15,6 +15,7 @@ import TabataScreen from './src/screens/TabataScreen';
 import CustomScreen from './src/screens/CustomScreen';
 import YourWorkoutsScreen from './src/screens/YourWorkoutsScreen';
 import TimerScreen from './src/screens/TimerScreen';
+import EMOMScreen from './src/screens/EMOMScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import BottomTabBar from './src/components/BottomTabBar';
@@ -27,6 +28,7 @@ function TimerStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Tabata" component={TabataScreen} />
+      <Stack.Screen name="EMOM" component={EMOMScreen} />
       <Stack.Screen name="Custom" component={CustomScreen} />
       <Stack.Screen name="YourWorkouts" component={YourWorkoutsScreen} />
       <Stack.Screen
@@ -56,10 +58,11 @@ function AppNavigator() {
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync(colors.surface).catch(() => {});
+      NavigationBar.setBackgroundColorAsync(colors.background).catch(() => {});
       NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+      NavigationBar.setVisibilityAsync('hidden').catch(() => {});
     }
-  }, [colors.surface, isDark]);
+  }, [isDark, colors.background]);
 
   const navTheme = {
     ...DefaultTheme,
