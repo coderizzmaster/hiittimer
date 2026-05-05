@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, StatusBar } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
 import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../context/SettingsContext';
 
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60);
@@ -36,7 +38,7 @@ function WorkoutCard({ workout, onStart, onEdit }) {
   const mins = workoutMins(workout);
   const exCount = workout.exercises?.length ?? null;
   const { accent, lightBg, darkBg } = TYPE_ACCENT[workout.type] ?? TYPE_ACCENT.custom;
-  const cardBg = isDark ? darkBg : lightBg;
+  const cardBg = isDark ? darkBg : '#fff';
 
   return (
     <View style={[styles.card, { backgroundColor: cardBg, borderColor: accent }]}>
@@ -78,6 +80,7 @@ function WorkoutCard({ workout, onStart, onEdit }) {
 export default function YourWorkoutsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { savedWorkouts, loadWorkouts } = useWorkout();
+  const { settings } = useSettings();
   const { colors, isDark } = useTheme();
   const styles = buildStyles(colors);
 
@@ -127,7 +130,17 @@ export default function YourWorkoutsScreen({ navigation, route }) {
         renderItem={({ item }) => (
           <WorkoutCard
             workout={item}
-            onStart={() => navigation.navigate('WorkoutTimer', { config: { ...item } })}
+            onStart={() => {
+              if (settings.hapticsEnabled) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+                setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 80);
+                setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 160);
+                setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 240);
+                setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 320);
+                setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 450);
+              }
+              navigation.navigate('WorkoutTimer', { config: { ...item } });
+            }}
             onEdit={() => navigation.navigate('Custom', { prefill: item, mode: item.type })}
           />
         )}

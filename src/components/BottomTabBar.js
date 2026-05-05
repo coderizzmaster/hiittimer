@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { StackActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,32 @@ const tabs = [
   { name: 'History',  label: 'History',  icon: 'bar-chart-outline',  iconActive: 'bar-chart'    },
   { name: 'Settings', label: 'Settings', icon: 'settings-outline',   iconActive: 'settings'     },
 ];
+
+function AnimatedTab({ tab, isFocused, onPress, colors, styles }) {
+  const scale = useRef(new Animated.Value(isFocused ? 1.25 : 1)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: isFocused ? 1.25 : 1,
+      useNativeDriver: true,
+      tension: 180,
+      friction: 8,
+    }).start();
+  }, [isFocused]);
+
+  return (
+    <TouchableOpacity style={styles.tab} onPress={onPress} activeOpacity={0.7}>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons
+          name={isFocused ? tab.iconActive : tab.icon}
+          size={24}
+          color={isFocused ? colors.primary : colors.textMuted}
+        />
+      </Animated.View>
+      <Text style={[styles.label, isFocused && styles.labelActive]}>{tab.label}</Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function BottomTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
@@ -26,9 +52,12 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
       {tabs.map((tab, index) => {
         const isFocused = state.index === index;
         return (
-          <TouchableOpacity
+          <AnimatedTab
             key={tab.name}
-            style={styles.tab}
+            tab={tab}
+            isFocused={isFocused}
+            colors={colors}
+            styles={styles}
             onPress={() => {
               if (tab.name === 'Timer') {
                 if (!isFocused) navigation.navigate('Timer');
@@ -41,15 +70,7 @@ export default function BottomTabBar({ state, descriptors, navigation }) {
                 navigation.navigate(tab.name);
               }
             }}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={isFocused ? tab.iconActive : tab.icon}
-              size={24}
-              color={isFocused ? colors.primary : colors.textMuted}
-            />
-            <Text style={[styles.label, isFocused && styles.labelActive]}>{tab.label}</Text>
-          </TouchableOpacity>
+          />
         );
       })}
     </View>

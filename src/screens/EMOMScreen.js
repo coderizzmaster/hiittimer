@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../context/SettingsContext';
 
 function Stepper({ value, min, max, step = 1, onChange, formatValue }) {
   const { colors } = useTheme();
@@ -27,6 +29,7 @@ function newExercise() {
 export default function EMOMScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { settings } = useSettings();
   const styles = buildStyles(colors);
 
   const [exercises, setExercises] = useState([newExercise()]);
@@ -40,6 +43,14 @@ export default function EMOMScreen({ navigation }) {
   function removeExercise(idx) { if (exercises.length > 1) setExercises(prev => prev.filter((_, i) => i !== idx)); }
 
   function handleStart() {
+    if (settings.hapticsEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 80);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 160);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 240);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 320);
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 450);
+    }
     navigation.navigate('WorkoutTimer', {
       config: {
         type: 'emom',

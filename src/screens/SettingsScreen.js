@@ -147,7 +147,7 @@ export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const styles = buildStyles(colors, isDark);
 
-  useEffect(() => { prepareBeep(); }, []);
+  useEffect(() => { prepareBeep(settings.mixWithMusic ?? true); }, [settings.mixWithMusic]);
 
   async function handleTest() {
     await prepareBeep();
@@ -170,6 +170,17 @@ export default function SettingsScreen() {
               <AnimatedSwitch
                 value={settings.soundEnabled}
                 onValueChange={v => updateSettings({ soundEnabled: v })}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            label="Mix with music"
+            subtitle="Play sounds alongside background music"
+            right={
+              <AnimatedSwitch
+                value={settings.mixWithMusic ?? true}
+                onValueChange={v => updateSettings({ mixWithMusic: v })}
               />
             }
           />
@@ -205,17 +216,6 @@ export default function SettingsScreen() {
               <AnimatedSwitch
                 value={settings.hapticsEnabled}
                 onValueChange={v => updateSettings({ hapticsEnabled: v })}
-              />
-            }
-          />
-          <View style={styles.divider} />
-          <SettingRow
-            label="Countdown cues"
-            subtitle="Haptic pulse on last 3 seconds"
-            right={
-              <AnimatedSwitch
-                value={settings.countdownCuesEnabled}
-                onValueChange={v => updateSettings({ countdownCuesEnabled: v })}
               />
             }
           />

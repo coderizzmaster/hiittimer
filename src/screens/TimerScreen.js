@@ -11,6 +11,9 @@ import { useTimer, buildSequence, totalDuration } from '../hooks/useTimer';
 import { useWorkout } from '../context/WorkoutContext';
 import { useSettings } from '../context/SettingsContext';
 import { playFanfare } from '../utils/beepSound';
+import * as StoreReview from 'expo-store-review';
+import { Image as ExpoImage } from 'expo-image';
+import { getRandomCelebrationGif } from '../utils/celebrationGifs';
 
 function formatTime(s) {
   const m = Math.floor(s / 60);
@@ -130,7 +133,25 @@ function ConfettiBurst() {
   );
 }
 
-function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }) {
+function TappableStatCard({ value, label, cardStyle, valueStyle, labelStyle, zIndex }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  function onPressIn() {
+    Animated.spring(scale, { toValue: 1.06, useNativeDriver: true, tension: 200, friction: 10 }).start();
+  }
+  function onPressOut() {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 10 }).start();
+  }
+  return (
+    <Animated.View style={{ flex: 1, transform: [{ scale }], zIndex }}>
+      <TouchableOpacity onPressIn={onPressIn} onPressOut={onPressOut} activeOpacity={0.82} style={cardStyle}>
+        <Text style={valueStyle}>{value}</Text>
+        <Text style={labelStyle}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets, requestReview }) {
   const { colors, isDark } = useTheme();
   const { settings } = useSettings();
   const doneStyles = buildDoneStyles(colors, isDark);
@@ -145,17 +166,26 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }
   const btnsOpacity = useRef(new Animated.Value(0)).current;
 
   const quote = useMemo(() => MOTIVATIONAL[Math.floor(Math.random() * MOTIVATIONAL.length)], []);
+  const gifUrl = useMemo(() => getRandomCelebrationGif(), []);
 
   const totalWorkSeconds = sequence
     .filter(s => s.phase === 'work')
     .reduce((sum, s) => sum + s.duration, 0);
 
   useEffect(() => {
-    if (settings.soundEnabled) playFanfare(settings.soundVolume).catch(() => {});
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 110);
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 220);
-    setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 380);
+    if (settings.soundEnabled) playFanfare(settings.soundVolume, settings.mixWithMusic ?? true).catch(() => {});
+    if (settings.hapticsEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 80);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 160);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 240);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 320);
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 450);
+    }
+
+    if (requestReview) {
+      setTimeout(() => StoreReview.requestReview().catch(() => {}), 3000);
+    }
 
     Animated.loop(
       Animated.sequence([
@@ -198,7 +228,15 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }
       <View style={doneStyles.iconSection}>
         <Animated.View style={[doneStyles.glowRing, { opacity: glowOpacity, transform: [{ scale: glowScale }] }]} />
         <Animated.View style={[doneStyles.iconCircle, { transform: [{ scale: iconScale }] }]}>
-          <EmojiIcon emoji="🏆" size={60} />
+          {gifUrl ? (
+            <ExpoImage
+              source={{ uri: gifUrl }}
+              style={doneStyles.gifImage}
+              contentFit="cover"
+            />
+          ) : (
+            <EmojiIcon emoji="🥳" size={60} />
+          )}
         </Animated.View>
       </View>
 
@@ -212,18 +250,9 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets }
       </Animated.Text>
 
       <Animated.View style={[doneStyles.statsRow, { opacity: statsOpacity, transform: [{ translateY: statsY }] }]}>
-        <View style={doneStyles.statCard}>
-          <Text style={doneStyles.statValue}>{formatTime(totalWorkSeconds)}</Text>
-          <Text style={doneStyles.statLabel}>Work Time</Text>
-        </View>
-        <View style={[doneStyles.statCard, doneStyles.statCardMid]}>
-          <Text style={doneStyles.statValue}>{config.rounds}</Text>
-          <Text style={doneStyles.statLabel}>Rounds</Text>
-        </View>
-        <View style={doneStyles.statCard}>
-          <Text style={doneStyles.statValue}>{formatTime(total)}</Text>
-          <Text style={doneStyles.statLabel}>Total Time</Text>
-        </View>
+        <TappableStatCard value={formatTime(totalWorkSeconds)} label="Work Time" cardStyle={doneStyles.statCard} valueStyle={doneStyles.statValue} labelStyle={doneStyles.statLabel} />
+        <TappableStatCard value={config.rounds} label="Rounds" cardStyle={[doneStyles.statCard, doneStyles.statCardMid]} valueStyle={doneStyles.statValue} labelStyle={doneStyles.statLabel} zIndex={1} />
+        <TappableStatCard value={formatTime(total)} label="Total Time" cardStyle={doneStyles.statCard} valueStyle={doneStyles.statValue} labelStyle={doneStyles.statLabel} />
       </Animated.View>
 
       <Animated.View style={[doneStyles.btns, { opacity: btnsOpacity }]}>
@@ -256,9 +285,12 @@ export default function TimerScreen({ navigation, route }) {
     }
   }, [settings.keepAwakeEnabled]);
 
+  const isFifthWorkoutRef = useRef(false);
+
   const handleComplete = useCallback(async () => {
     const elapsed = Math.round((Date.now() - startTime.current) / 1000);
-    await logSession({ name: config.name, type: config.type, duration: elapsed, rounds: config.rounds });
+    const count = await logSession({ name: config.name, type: config.type, duration: elapsed, rounds: config.rounds });
+    isFifthWorkoutRef.current = count === 5 || count === 25;
   }, [config, logSession]);
 
   const { currentStep, stepIndex, timeLeft, running, finished, start, pause, reset, skip } = useTimer(sequence, handleComplete, true);
@@ -302,6 +334,7 @@ export default function TimerScreen({ navigation, route }) {
         sequence={sequence}
         total={total}
         insets={insets}
+        requestReview={isFifthWorkoutRef.current}
         onDone={() => { reset(); navigation.popToTop(); }}
         onRepeat={() => { startTime.current = Date.now(); reset(); }}
       />
@@ -432,18 +465,22 @@ function buildDoneStyles(c, isDark) {
       borderWidth: 2, borderColor: AMBER + '55',
     },
     iconCircle: {
-      width: 130, height: 130, borderRadius: 65,
+      width: 160, height: 160, borderRadius: 80,
       backgroundColor: AMBER,
       alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
       shadowColor: AMBER,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.55,
       shadowRadius: 20,
       elevation: 14,
     },
+    gifImage: {
+      width: 160, height: 160,
+    },
     title: {
-      fontSize: 46, fontWeight: '900', color: c.text,
-      textAlign: 'center', letterSpacing: -1.5, lineHeight: 50,
+      fontSize: 36, fontWeight: '900', color: c.text,
+      textAlign: 'center', letterSpacing: 2, lineHeight: 44,
       marginBottom: spacing.xs,
     },
     subtitle: { fontSize: 15, color: c.textSecondary, fontWeight: '600', textAlign: 'center', marginTop: 4 },
@@ -453,17 +490,18 @@ function buildDoneStyles(c, isDark) {
     },
     statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
     statCard: {
-      flex: 1, backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.lg,
-      paddingVertical: spacing.md + 4, alignItems: 'center', ...shadow.sm,
+      backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.md,
+      paddingVertical: spacing.md + 6, alignItems: 'center', borderWidth: 1.5, borderColor: AMBER,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 4,
     },
-    statCardMid: { borderWidth: 2, borderColor: AMBER + '55' },
-    statValue: { fontSize: 24, fontWeight: '800', color: c.text, letterSpacing: -0.5 },
-    statLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, marginTop: 4, letterSpacing: 0.8 },
+    statCardMid: { zIndex: 1 },
+    statValue: { fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -1 },
+    statLabel: { fontSize: 10, fontWeight: '700', color: c.textSecondary, marginTop: 4, letterSpacing: 1.2 },
 
     btns: { width: '100%', alignItems: 'center', gap: spacing.sm },
     doneBtn: {
       width: '100%', backgroundColor: AMBER, borderRadius: radius.full,
-      paddingVertical: spacing.md + 6, alignItems: 'center',
+      paddingVertical: spacing.md, alignItems: 'center',
       shadowColor: AMBER,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.45,

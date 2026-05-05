@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
 import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../context/SettingsContext';
 
 function formatDuration(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -101,6 +103,7 @@ function buildCircuitExercises(stationCount, workTime, restTime) {
 export default function CustomScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { settings } = useSettings();
   const styles = buildStyles(colors);
   const mode = route?.params?.mode ?? 'custom';
   const prefill = route?.params?.prefill;
@@ -156,10 +159,18 @@ export default function CustomScreen({ navigation, route }) {
   }
 
   function handleStart() {
+    if (settings.hapticsEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 80);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 160);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 240);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 320);
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 450);
+    }
     const name = isCircuit ? 'Circuit' : (workoutName || 'My Workout');
     const go = () => navigation.navigate('WorkoutTimer', { config: { type: mode, name, exercises: resolvedExercises, rounds, countdownTime } });
 
-    if (prefill) { go(); return; }
+    if (prefill || isCircuit) { go(); return; }
 
     Alert.alert(
       'Save your workout?',

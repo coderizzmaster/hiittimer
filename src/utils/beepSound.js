@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS } from 'expo-av';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 function toBase64(bytes) {
@@ -83,26 +83,27 @@ function makeFanfareWav() {
 // Generated once, reused on every play — no file system needed
 let _beepUri = null;
 let _fanfareUri = null;
-let _modeReady = false;
+let _lastMixMode = null;
 
 function beepUri()    { if (!_beepUri)    _beepUri    = `data:audio/wav;base64,${makeBeepWav()}`;    return _beepUri; }
 function fanfareUri() { if (!_fanfareUri) _fanfareUri = `data:audio/wav;base64,${makeFanfareWav()}`; return _fanfareUri; }
 
-async function ensureAudioMode() {
-  if (_modeReady) return;
+async function ensureAudioMode(mixWithMusic) {
+  if (_lastMixMode === mixWithMusic) return;
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
     playsInSilentModeIOS: true,
     staysActiveInBackground: false,
-    shouldDuckAndroid: true,
+    interruptionModeIOS: mixWithMusic ? InterruptionModeIOS.MixWithOthers : InterruptionModeIOS.DoNotMix,
+    shouldDuckAndroid: !mixWithMusic,
     playThroughEarpieceAndroid: false,
   });
-  _modeReady = true;
+  _lastMixMode = mixWithMusic;
 }
 
-export async function prepareBeep() {
+export async function prepareBeep(mixWithMusic = true) {
   try {
-    await ensureAudioMode();
+    await ensureAudioMode(mixWithMusic);
     beepUri();
     fanfareUri();
   } catch (e) {
@@ -120,18 +121,18 @@ async function playSound(uri, volume) {
   });
 }
 
-export async function playBeep(volume = 1.0) {
+export async function playBeep(volume = 1.0, mixWithMusic = true) {
   try {
-    await ensureAudioMode();
+    await ensureAudioMode(mixWithMusic);
     await playSound(beepUri(), volume);
   } catch (e) {
     console.error('[beepSound] play failed:', e);
   }
 }
 
-export async function playFanfare(volume = 1.0) {
+export async function playFanfare(volume = 1.0, mixWithMusic = true) {
   try {
-    await ensureAudioMode();
+    await ensureAudioMode(mixWithMusic);
     await playSound(fanfareUri(), volume);
   } catch (e) {
     console.error('[beepSound] fanfare failed:', e);

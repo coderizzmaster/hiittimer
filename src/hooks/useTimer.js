@@ -94,12 +94,12 @@ export function useTimer(sequence, onComplete, autoStart = false) {
   const soundEnabledRef = useRef(settings.soundEnabled);
   const soundVolumeRef = useRef(settings.soundVolume);
   const hapticsEnabledRef = useRef(settings.hapticsEnabled);
-  const countdownCuesEnabledRef = useRef(settings.countdownCuesEnabled);
   const pauseOnBackgroundRef = useRef(settings.pauseOnBackground);
+  const mixWithMusicRef = useRef(settings.mixWithMusic ?? true);
   soundEnabledRef.current = settings.soundEnabled;
   soundVolumeRef.current = settings.soundVolume;
+  mixWithMusicRef.current = settings.mixWithMusic ?? true;
   hapticsEnabledRef.current = settings.hapticsEnabled;
-  countdownCuesEnabledRef.current = settings.countdownCuesEnabled;
   pauseOnBackgroundRef.current = settings.pauseOnBackground;
 
   useEffect(() => {
@@ -155,21 +155,21 @@ export function useTimer(sequence, onComplete, autoStart = false) {
     try {
       if (phase === 'work') {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (soundEnabledRef.current) playBeep(soundVolumeRef.current);
+        if (soundEnabledRef.current) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
       } else if (phase === 'done') {
-        if (soundEnabledRef.current) playFanfare(soundVolumeRef.current);
+        if (soundEnabledRef.current) playFanfare(soundVolumeRef.current, mixWithMusicRef.current);
       } else if (phase === 'countdown') {
         // no haptic when countdown starts — ticks handle it
       } else {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        if (soundEnabledRef.current) playBeep(soundVolumeRef.current);
+        if (soundEnabledRef.current) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
       }
     } catch {}
   }, []);
 
   const countdownCue = useCallback(async () => {
     try {
-      if (countdownCuesEnabledRef.current) await Haptics.selectionAsync();
+      if (hapticsEnabledRef.current) await Haptics.selectionAsync();
     } catch {}
   }, []);
 
@@ -202,6 +202,12 @@ export function useTimer(sequence, onComplete, autoStart = false) {
 
   const start = useCallback(() => {
     if (finished) return;
+    if (stepIndexRef.current === 0 && hapticsEnabledRef.current) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 100);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 200);
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 350);
+    }
     triggerCue(currentStep?.phase ?? 'work');
     setRunning(true);
   }, [finished, currentStep, triggerCue]);

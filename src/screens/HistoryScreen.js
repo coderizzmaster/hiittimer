@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
@@ -17,6 +17,29 @@ function formatTime(s) {
 }
 
 const ORANGE = '#F97316';
+
+function AnimatedStatCard({ value, label }) {
+  const { colors, isDark } = useTheme();
+  const styles = buildStyles(colors, isDark);
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function onPressIn() {
+    Animated.spring(scale, { toValue: 1.06, useNativeDriver: true, tension: 200, friction: 10 }).start();
+  }
+
+  function onPressOut() {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 10 }).start();
+  }
+
+  return (
+    <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+      <TouchableOpacity onPressIn={onPressIn} onPressOut={onPressOut} activeOpacity={0.82} style={styles.statCard}>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 function HistoryCard({ item }) {
   const { colors, isDark } = useTheme();
@@ -90,18 +113,9 @@ export default function HistoryScreen({ navigation }) {
       </View>
 
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{history.length}</Text>
-          <Text style={styles.statLabel}>Workouts completed</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{formatTime(history.reduce((s, h) => s + (h.duration || 0), 0))}</Text>
-          <Text style={styles.statLabel}>Minutes worked out</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{history.reduce((s, h) => s + (h.rounds || 0), 0)}</Text>
-          <Text style={styles.statLabel}>Exercises done</Text>
-        </View>
+        <AnimatedStatCard value={history.length} label="Workouts completed" />
+        <AnimatedStatCard value={formatTime(history.reduce((s, h) => s + (h.duration || 0), 0))} label="Minutes worked out" />
+        <AnimatedStatCard value={history.reduce((s, h) => s + (h.rounds || 0), 0)} label="Exercises done" />
       </View>
 
       <FlatList
@@ -127,11 +141,11 @@ function buildStyles(c, isDark) {
 
     statsRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.md },
     statCard: {
-      flex: 1, backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.md,
-      padding: spacing.md, alignItems: 'center', ...shadow.sm,
+      backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.md,
+      padding: spacing.md, alignItems: 'center', alignSelf: 'stretch', ...shadow.sm,
     },
     statValue: { fontSize: 20, fontWeight: '800', color: c.text },
-    statLabel: { fontSize: 10, color: c.textSecondary, marginTop: 2, textAlign: 'center' },
+    statLabel: { fontSize: 10, color: c.textSecondary, marginTop: 2, textAlign: 'center', minHeight: 28 },
 
     list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
     card: { borderRadius: radius.lg, ...shadow.sm, padding: spacing.md, borderWidth: 1.5, backgroundColor: isDark ? c.surface : '#fff', borderColor: ORANGE },

@@ -30,6 +30,7 @@ export function WorkoutProvider({ children }) {
   const logSession = useCallback(async (entry) => {
     const updated = await addHistoryEntry(entry);
     setHistory(updated);
+    return updated.length;
   }, []);
 
   const wipeHistory = useCallback(async () => {

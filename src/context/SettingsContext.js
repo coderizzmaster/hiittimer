@@ -7,10 +7,10 @@ const DEFAULTS = {
   soundEnabled: true,
   soundVolume: 0.8,
   hapticsEnabled: true,
-  countdownCuesEnabled: true,
   keepAwakeEnabled: true,
   darkMode: false,
   pauseOnBackground: false,
+  mixWithMusic: true,
 };
 
 const SettingsContext = createContext(null);

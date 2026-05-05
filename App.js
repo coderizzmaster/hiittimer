@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { preloadCelebrationGifs } from './src/utils/celebrationGifs';
 import { View, Platform } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -93,6 +94,8 @@ function ThemedRoot({ children }) {
 }
 
 export default function App() {
+  useEffect(() => { preloadCelebrationGifs(); }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SettingsProvider>
