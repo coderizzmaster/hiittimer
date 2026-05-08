@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, PanResponder, StatusBar, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, PanResponder, StatusBar, Animated, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -157,7 +157,7 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
-      <View style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>
         </View>
@@ -170,6 +170,17 @@ export default function SettingsScreen() {
               <AnimatedSwitch
                 value={settings.soundEnabled}
                 onValueChange={v => updateSettings({ soundEnabled: v })}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            label="Exercise announcements"
+            subtitle="Speak exercise name aloud when it starts"
+            right={
+              <AnimatedSwitch
+                value={settings.ttsEnabled ?? false}
+                onValueChange={v => updateSettings({ ttsEnabled: v })}
               />
             }
           />
@@ -260,7 +271,7 @@ export default function SettingsScreen() {
         <View style={styles.versionContainer}>
           <Text style={styles.versionText}>v1.0.0</Text>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -268,7 +279,8 @@ export default function SettingsScreen() {
 function buildStyles(c, isDark) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
-    container: { flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
+    container: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl ?? 32 },
     header: { paddingTop: spacing.md, marginBottom: spacing.md },
     title: { fontSize: 26, fontWeight: '800', color: c.text },
 
@@ -343,7 +355,7 @@ function buildStyles(c, isDark) {
     },
 
     // ── Version ───────────────────────────────────────────────────────────────
-    versionContainer: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+    versionContainer: { alignItems: 'center', marginTop: spacing.lg },
     versionText: { fontSize: 11, color: c.textMuted },
   });
 }

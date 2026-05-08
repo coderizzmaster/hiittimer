@@ -51,6 +51,29 @@ function makeBeepWav() {
   return toBase64(buf);
 }
 
+function makeDingWav() {
+  // Single "PIING" — sharp hit, long metallic ring-out
+  const sampleRate = 22050;
+  const duration = 0.9;
+  const numSamples = Math.floor(sampleRate * duration);
+  const dataBytes = numSamples * 2;
+  const buf = new Uint8Array(44 + dataBytes);
+  const view = new DataView(buf.buffer);
+  writeWavHeader(view, dataBytes, sampleRate);
+
+  const freq = 950;
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const env = Math.min(1, i / (sampleRate * 0.008)) * Math.exp(-t * 4);
+    const sig = (
+      Math.sin(2 * Math.PI * freq * t) +
+      0.2 * Math.sin(2 * Math.PI * freq * 2.0 * t)
+    ) / 1.2;
+    view.setInt16(44 + i * 2, Math.round(32767 * 0.62 * sig * env), true);
+  }
+  return toBase64(buf);
+}
+
 function makeFanfareWav() {
   const sampleRate = 22050;
   const notes = [
@@ -83,10 +106,12 @@ function makeFanfareWav() {
 // Generated once, reused on every play — no file system needed
 let _beepUri = null;
 let _fanfareUri = null;
+let _dingUri = null;
 let _lastMixMode = null;
 
 function beepUri()    { if (!_beepUri)    _beepUri    = `data:audio/wav;base64,${makeBeepWav()}`;    return _beepUri; }
 function fanfareUri() { if (!_fanfareUri) _fanfareUri = `data:audio/wav;base64,${makeFanfareWav()}`; return _fanfareUri; }
+function dingUri()    { if (!_dingUri)    _dingUri    = `data:audio/wav;base64,${makeDingWav()}`;    return _dingUri; }
 
 async function ensureAudioMode(mixWithMusic) {
   if (_lastMixMode === mixWithMusic) return;
@@ -106,6 +131,7 @@ export async function prepareBeep(mixWithMusic = true) {
     await ensureAudioMode(mixWithMusic);
     beepUri();
     fanfareUri();
+    dingUri();
   } catch (e) {
     console.warn('[beepSound] prepare failed:', e);
   }
@@ -127,6 +153,15 @@ export async function playBeep(volume = 1.0, mixWithMusic = true) {
     await playSound(beepUri(), volume);
   } catch (e) {
     console.error('[beepSound] play failed:', e);
+  }
+}
+
+export async function playDing(volume = 1.0, mixWithMusic = true) {
+  try {
+    await ensureAudioMode(mixWithMusic);
+    await playSound(dingUri(), volume);
+  } catch (e) {
+    console.error('[beepSound] ding failed:', e);
   }
 }
 

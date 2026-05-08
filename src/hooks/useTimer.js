@@ -96,11 +96,14 @@ export function useTimer(sequence, onComplete, autoStart = false) {
   const hapticsEnabledRef = useRef(settings.hapticsEnabled);
   const pauseOnBackgroundRef = useRef(settings.pauseOnBackground);
   const mixWithMusicRef = useRef(settings.mixWithMusic ?? true);
+  const ttsEnabledRef = useRef(settings.ttsEnabled ?? false);
   soundEnabledRef.current = settings.soundEnabled;
   soundVolumeRef.current = settings.soundVolume;
   mixWithMusicRef.current = settings.mixWithMusic ?? true;
   hapticsEnabledRef.current = settings.hapticsEnabled;
   pauseOnBackgroundRef.current = settings.pauseOnBackground;
+  ttsEnabledRef.current = settings.ttsEnabled ?? false;
+  // ttsEnabledRef kept for beep-suppression logic in triggerCue
 
   useEffect(() => {
     prepareBeep();
@@ -151,18 +154,19 @@ export function useTimer(sequence, onComplete, autoStart = false) {
     return () => sub.remove();
   }, [sequence]);
 
-  const triggerCue = useCallback(async (phase) => {
+  const triggerCue = useCallback(async (phase, label) => {
     try {
       if (phase === 'work') {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (soundEnabledRef.current) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
+        const speakingName = ttsEnabledRef.current && label && label !== 'WORK';
+        if (soundEnabledRef.current && !speakingName) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
       } else if (phase === 'done') {
         if (soundEnabledRef.current) playFanfare(soundVolumeRef.current, mixWithMusicRef.current);
       } else if (phase === 'countdown') {
         // no haptic when countdown starts — ticks handle it
       } else {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        if (soundEnabledRef.current) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
+        if (soundEnabledRef.current && !ttsEnabledRef.current) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
       }
     } catch {}
   }, []);
@@ -191,7 +195,7 @@ export function useTimer(sequence, onComplete, autoStart = false) {
           onCompleteRef.current?.();
           return 0;
         }
-        triggerCue(sequence[next].phase);
+        triggerCue(sequence[next].phase, sequence[next].label);
         setStepIndex(next);
         return sequence[next].duration;
       });
@@ -208,7 +212,7 @@ export function useTimer(sequence, onComplete, autoStart = false) {
       setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 200);
       setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 350);
     }
-    triggerCue(currentStep?.phase ?? 'work');
+    triggerCue(currentStep?.phase ?? 'work', currentStep?.label);
     setRunning(true);
   }, [finished, currentStep, triggerCue]);
 
@@ -230,7 +234,7 @@ export function useTimer(sequence, onComplete, autoStart = false) {
       onCompleteRef.current?.();
       return;
     }
-    triggerCue(sequence[next].phase);
+    triggerCue(sequence[next].phase, sequence[next].label);
     setStepIndex(next);
     setTimeLeft(sequence[next].duration);
   }, [sequence, triggerCue]);

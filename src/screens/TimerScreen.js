@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Easing, Alert } from 'react-native';
@@ -10,7 +11,7 @@ import EmojiIcon from '../components/EmojiIcon';
 import { useTimer, buildSequence, totalDuration } from '../hooks/useTimer';
 import { useWorkout } from '../context/WorkoutContext';
 import { useSettings } from '../context/SettingsContext';
-import { playFanfare } from '../utils/beepSound';
+import { playFanfare, playDing } from '../utils/beepSound';
 import * as StoreReview from 'expo-store-review';
 import { Image as ExpoImage } from 'expo-image';
 import { getRandomCelebrationGif } from '../utils/celebrationGifs';
@@ -294,6 +295,26 @@ export default function TimerScreen({ navigation, route }) {
   }, [config, logSession]);
 
   const { currentStep, stepIndex, timeLeft, running, finished, start, pause, reset, skip } = useTimer(sequence, handleComplete, true);
+
+  // TTS: speak phase name when the step changes
+  useEffect(() => {
+    if (!settings.ttsEnabled) return;
+    const step = sequence[stepIndex];
+    if (!step) return;
+    if (step.phase === 'rest') {
+      playDing(settings.soundVolume, settings.mixWithMusic ?? true);
+      Speech.speak('Rest', { rate: 0.9 });
+    } else if (step.phase === 'work' && step.label && step.label !== 'WORK') {
+      playDing(settings.soundVolume, settings.mixWithMusic ?? true);
+      Speech.speak(step.label, { rate: 0.9 });
+    }
+  }, [stepIndex, sequence, settings.ttsEnabled]);
+
+  // TTS: count down the last 3 seconds before each transition
+  useEffect(() => {
+    if (!settings.ttsEnabled || !running || timeLeft < 1 || timeLeft > 3) return;
+    Speech.speak(String(timeLeft), { rate: 1.1 });
+  }, [timeLeft, running, settings.ttsEnabled]);
 
   useEffect(() => {
     const unsub = navigation.addListener('beforeRemove', (e) => {

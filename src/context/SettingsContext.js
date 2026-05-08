@@ -11,6 +11,7 @@ const DEFAULTS = {
   darkMode: false,
   pauseOnBackground: false,
   mixWithMusic: true,
+  ttsEnabled: false,
 };
 
 const SettingsContext = createContext(null);
