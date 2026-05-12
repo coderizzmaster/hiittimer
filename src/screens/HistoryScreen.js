@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar, Animated, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, shadow } from '../utils/theme';
 import { useWorkout } from '../context/WorkoutContext';
@@ -41,7 +41,7 @@ function AnimatedStatCard({ value, label }) {
   );
 }
 
-function HistoryCard({ item }) {
+function HistoryCard({ item, editing, onDelete }) {
   const { colors, isDark } = useTheme();
   const styles = buildStyles(colors, isDark);
 
@@ -63,6 +63,11 @@ function HistoryCard({ item }) {
             <Text style={styles.statLbl}>Rounds</Text>
           </View>
         </View>
+        {editing && (
+          <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteBtn} activeOpacity={0.7}>
+            <Text style={styles.deleteBtnText}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -70,20 +75,30 @@ function HistoryCard({ item }) {
 
 export default function HistoryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { history, loadHistory, wipeHistory } = useWorkout();
+  const { history, loadHistory, removeHistoryEntry, wipeHistory } = useWorkout();
   const { colors, isDark } = useTheme();
-  const styles = buildStyles(colors, isDark);
+  const { width } = useWindowDimensions();
+  const styles = buildStyles(colors, isDark, width >= 600);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadHistory);
     return unsub;
   }, [navigation, loadHistory]);
 
+  useEffect(() => {
+    if (history.length === 0) setEditing(false);
+  }, [history.length]);
+
   function handleClear() {
     Alert.alert('Clear History', 'Delete all workout history?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: wipeHistory },
+      { text: 'Clear', style: 'destructive', onPress: () => { setEditing(false); wipeHistory(); } },
     ]);
+  }
+
+  function handleDelete(id) {
+    removeHistoryEntry(id);
   }
 
   if (history.length === 0) {
@@ -107,9 +122,14 @@ export default function HistoryScreen({ navigation }) {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <View style={styles.header}>
         <Text style={styles.title}>History</Text>
-        <TouchableOpacity onPress={handleClear} activeOpacity={0.7}>
-          <Text style={styles.clearText}>Clear</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => setEditing(e => !e)} activeOpacity={0.7}>
+            <Text style={[styles.clearText, editing && styles.doneText]}>{editing ? 'Done' : 'Edit'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleClear} activeOpacity={0.7}>
+            <Text style={styles.clearText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.statsRow}>
@@ -123,23 +143,25 @@ export default function HistoryScreen({ navigation }) {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => <HistoryCard item={item} />}
+        renderItem={({ item }) => <HistoryCard item={item} editing={editing} onDelete={handleDelete} />}
       />
     </View>
   );
 }
 
-function buildStyles(c, isDark) {
+function buildStyles(c, isDark, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     header: {
       flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md,
+      paddingHorizontal: isTablet ? '10%' : '5%', paddingTop: isTablet ? '5%' : spacing.lg, paddingBottom: spacing.md,
     },
     title: { fontSize: 26, fontWeight: '800', color: c.text },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     clearText: { fontSize: 14, color: c.primary, fontWeight: '600' },
+    doneText: { color: ORANGE },
 
-    statsRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.md },
+    statsRow: { flexDirection: 'row', paddingHorizontal: isTablet ? '10%' : '5%', gap: spacing.sm, marginBottom: spacing.md },
     statCard: {
       backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.md,
       padding: spacing.md, alignItems: 'center', alignSelf: 'stretch', ...shadow.sm,
@@ -147,7 +169,7 @@ function buildStyles(c, isDark) {
     statValue: { fontSize: 20, fontWeight: '800', color: c.text },
     statLabel: { fontSize: 10, color: c.textSecondary, marginTop: 2, textAlign: 'center', minHeight: 28 },
 
-    list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
+    list: { paddingHorizontal: isTablet ? '10%' : '5%', paddingBottom: spacing.xl * 2, gap: spacing.sm },
     card: { borderRadius: radius.lg, ...shadow.sm, padding: spacing.md, borderWidth: 1.5, backgroundColor: isDark ? c.surface : '#fff', borderColor: ORANGE },
     cardRow: { flexDirection: 'row', alignItems: 'center' },
     cardLeft: { flex: 1, marginRight: spacing.md },
@@ -158,6 +180,13 @@ function buildStyles(c, isDark) {
     statVal: { fontSize: 15, fontWeight: '800', color: ORANGE },
     statLbl: { fontSize: 10, fontWeight: '600', color: c.textMuted, marginTop: 1, letterSpacing: 0.5 },
     statDivider: { width: 1, height: 26, backgroundColor: ORANGE, opacity: 0.25 },
+    deleteBtn: {
+      marginLeft: spacing.sm,
+      width: 28, height: 28, borderRadius: 14,
+      backgroundColor: '#EF4444',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    deleteBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', lineHeight: 14 },
 
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl * 2 },
     emptyIcon: { marginBottom: spacing.md },

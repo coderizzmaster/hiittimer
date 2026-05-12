@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { getSavedWorkouts, saveWorkout, deleteWorkout, getHistory, addHistoryEntry, clearHistory } from '../utils/storage';
+import { getSavedWorkouts, saveWorkout, deleteWorkout, getHistory, addHistoryEntry, deleteHistoryEntry, clearHistory } from '../utils/storage';
 
 const WorkoutContext = createContext(null);
 
@@ -33,6 +33,11 @@ export function WorkoutProvider({ children }) {
     return updated.length;
   }, []);
 
+  const removeHistoryEntry = useCallback(async (id) => {
+    const updated = await deleteHistoryEntry(id);
+    setHistory(updated);
+  }, []);
+
   const wipeHistory = useCallback(async () => {
     await clearHistory();
     setHistory([]);
@@ -47,6 +52,7 @@ export function WorkoutProvider({ children }) {
       persistSave,
       persistDelete,
       logSession,
+      removeHistoryEntry,
       wipeHistory,
     }}>
       {children}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,7 +104,8 @@ export default function CustomScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { settings } = useSettings();
-  const styles = buildStyles(colors);
+  const { width } = useWindowDimensions();
+  const styles = buildStyles(colors, width >= 600);
   const mode = route?.params?.mode ?? 'custom';
   const prefill = route?.params?.prefill;
   const isCircuit = mode === 'circuit';
@@ -341,7 +342,7 @@ export default function CustomScreen({ navigation, route }) {
   );
 }
 
-function buildStyles(c) {
+function buildStyles(c, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     navBar: {
@@ -353,7 +354,7 @@ function buildStyles(c) {
     navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
     trashBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
-    circBody:   { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, justifyContent: 'space-between' },
+    circBody:   { flex: 1, paddingHorizontal: isTablet ? '10%' : '5%', paddingTop: isTablet ? '5%' : spacing.sm, justifyContent: 'space-between' },
     circCenter: { flex: 1, justifyContent: 'center', gap: spacing.md },
     circCard:   { backgroundColor: c.surface, borderRadius: radius.lg, overflow: 'hidden', ...shadow.sm },
     circRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: 13 },
@@ -368,7 +369,7 @@ function buildStyles(c) {
     circSummaryLabel:   { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase' },
     circSummaryUnit:    { fontSize: 14, fontWeight: '500', color: c.textSecondary },
 
-    container:    { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2 },
+    container:    { paddingHorizontal: isTablet ? '10%' : '5%', paddingBottom: spacing.xl * 2, paddingTop: isTablet ? '5%' : 0 },
     section:      { marginBottom: spacing.lg },
     sectionLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 1.2, marginBottom: spacing.sm },
 

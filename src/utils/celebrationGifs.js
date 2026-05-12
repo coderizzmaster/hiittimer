@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 // 2. Replace the placeholder below with your key
 // 3. Replace the GIF IDs with any celebration GIFs you like from giphy.com
 //    (the ID is the last part of the GIF's URL, e.g. giphy.com/gifs/title-xT9IgG50...)
-const GIPHY_API_KEY = 'aajp4q3Y6CVAEU1NQtv4SGBFWKZimJsV';
+const GIPHY_API_KEY = process.env.EXPO_PUBLIC_GIPHY_API_KEY;
 
 const GIF_IDS = [
   'd5YttuybhUQt1BeGPh', // replace with your chosen GIF IDs

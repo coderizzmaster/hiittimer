@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
@@ -16,7 +16,8 @@ const modes = [
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const styles = buildStyles(colors, isDark);
+  const { width } = useWindowDimensions();
+  const styles = buildStyles(colors, isDark, width >= 600);
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
@@ -57,10 +58,10 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-function buildStyles(c, isDark) {
+function buildStyles(c, isDark, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
-    container: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+    container: { flexGrow: 1, paddingHorizontal: '10%', paddingBottom: spacing.xl, paddingTop: isTablet ? '5%' : 0 },
     header: { marginBottom: spacing.xl },
     eyebrow: { fontSize: 11, fontWeight: '700', color: c.primary, letterSpacing: 1.8, marginBottom: spacing.xs },
     title: { fontSize: 40, fontWeight: '800', color: c.text, letterSpacing: -1 },

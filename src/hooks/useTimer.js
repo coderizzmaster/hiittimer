@@ -66,7 +66,7 @@ export function totalDuration(sequence) {
   return sequence.reduce((sum, s) => sum + (s.phase === 'countdown' ? 0 : s.duration), 0);
 }
 
-export function useTimer(sequence, onComplete, autoStart = false) {
+export function useTimer(sequence, onComplete, autoStart = false, volumeOverride = null) {
   const [stepIndex, setStepIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(sequence[0]?.duration ?? 0);
   const [running, setRunning] = useState(autoStart);
@@ -155,21 +155,22 @@ export function useTimer(sequence, onComplete, autoStart = false) {
   }, [sequence]);
 
   const triggerCue = useCallback(async (phase, label) => {
+    const vol = volumeOverride?.current ?? soundVolumeRef.current;
     try {
       if (phase === 'work') {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const speakingName = ttsEnabledRef.current && label && label !== 'WORK';
-        if (soundEnabledRef.current && !speakingName) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
+        if (soundEnabledRef.current && !speakingName) playBeep(vol, mixWithMusicRef.current);
       } else if (phase === 'done') {
-        if (soundEnabledRef.current) playFanfare(soundVolumeRef.current, mixWithMusicRef.current);
+        if (soundEnabledRef.current) playFanfare(vol, mixWithMusicRef.current);
       } else if (phase === 'countdown') {
         // no haptic when countdown starts — ticks handle it
       } else {
         if (hapticsEnabledRef.current) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        if (soundEnabledRef.current && !ttsEnabledRef.current) playBeep(soundVolumeRef.current, mixWithMusicRef.current);
+        if (soundEnabledRef.current && !ttsEnabledRef.current) playBeep(vol, mixWithMusicRef.current);
       }
     } catch {}
-  }, []);
+  }, [volumeOverride]);
 
   const countdownCue = useCallback(async () => {
     try {

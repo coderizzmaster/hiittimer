@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, PanResponder, StatusBar, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, PanResponder, StatusBar, Animated, ScrollView, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -145,7 +145,8 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
   const { colors, isDark } = useTheme();
-  const styles = buildStyles(colors, isDark);
+  const { width } = useWindowDimensions();
+  const styles = buildStyles(colors, isDark, width >= 600);
 
   useEffect(() => { prepareBeep(settings.mixWithMusic ?? true); }, [settings.mixWithMusic]);
 
@@ -276,11 +277,11 @@ export default function SettingsScreen() {
   );
 }
 
-function buildStyles(c, isDark) {
+function buildStyles(c, isDark, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     container: { flex: 1 },
-    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl ?? 32 },
+    scrollContent: { paddingHorizontal: isTablet ? '10%' : '5%', paddingBottom: spacing.xl ?? 32, paddingTop: isTablet ? '5%' : 0 },
     header: { paddingTop: spacing.md, marginBottom: spacing.md },
     title: { fontSize: 26, fontWeight: '800', color: c.text },
 

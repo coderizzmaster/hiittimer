@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, shadow } from '../utils/theme';
@@ -43,7 +43,9 @@ export default function TabataScreen({ navigation }) {
   const [selected, setSelected] = useState(0);
   const { colors, isDark } = useTheme();
   const { settings } = useSettings();
-  const styles = buildStyles(colors);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 600;
+  const styles = buildStyles(colors, isTablet);
   const mode = MODES[selected];
 
   function handleStart() {
@@ -79,6 +81,7 @@ export default function TabataScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
+      <View style={styles.content}>
       <Text style={styles.pageTitle}>Choose a mode</Text>
       <Text style={styles.pageSub}>Pick the protocol that matches your goal</Text>
 
@@ -141,13 +144,17 @@ export default function TabataScreen({ navigation }) {
       >
         <Text style={styles.startBtnText}>START {mode.label.toUpperCase()}</Text>
       </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-function buildStyles(c) {
+function buildStyles(c, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
+    content: isTablet
+      ? { flex: 1, maxWidth: 600, width: '100%', alignSelf: 'center', justifyContent: 'center', paddingHorizontal: '10%' }
+      : { flex: 1, paddingHorizontal: '5%' },
 
     navBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -157,15 +164,16 @@ function buildStyles(c) {
     backIcon: { fontSize: 30, color: c.text, fontWeight: '300', marginTop: -2 },
     navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
 
-    pageTitle: { fontSize: 26, fontWeight: '800', color: c.text, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
-    pageSub: { fontSize: 14, color: c.textSecondary, paddingHorizontal: spacing.lg, marginTop: 2, marginBottom: spacing.md },
+    pageTitle: { fontSize: 26, fontWeight: '800', color: c.text, marginTop: spacing.xs },
+    pageSub: { fontSize: 14, color: c.textSecondary, marginTop: 2, marginBottom: spacing.md },
 
-    modeList: { flex: 1, paddingHorizontal: spacing.lg, gap: spacing.sm },
+    modeList: { gap: spacing.sm, ...(isTablet ? {} : { flex: 1 }) },
 
     modeCard: {
-      flex: 1, backgroundColor: c.surface, borderRadius: radius.lg,
+      backgroundColor: c.surface, borderRadius: radius.lg,
       padding: spacing.md, borderWidth: 1.5, borderColor: c.border,
       justifyContent: 'space-between',
+      ...(isTablet ? { minHeight: 260 } : { flex: 1 }),
       ...shadow.sm,
     },
 
@@ -184,7 +192,7 @@ function buildStyles(c) {
     modeStatDivider: { width: 1, height: 28, backgroundColor: c.border },
 
     startBtn: {
-      marginHorizontal: spacing.lg, marginTop: spacing.md,
+      marginTop: spacing.md,
       borderRadius: radius.full, paddingVertical: spacing.md + 2,
       alignItems: 'center', ...shadow.md,
     },

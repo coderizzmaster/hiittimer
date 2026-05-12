@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Easing, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Easing, Alert, useWindowDimensions, PanResponder } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, radius, shadow } from '../utils/theme';
@@ -24,12 +25,56 @@ function formatTime(s) {
 
 const COUNTDOWN_COLOR = '#4F46E5';
 
-function CircleTimer({ timeLeft, total, phase }) {
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+function useRingScale() {
+  const { width } = useWindowDimensions();
+  const sc = Math.min(width / 390, 1.6);
+  return {
+    sc,
+    RING_SIZE: Math.round(220 * sc),
+    RING_RADIUS: Math.round(95 * sc),
+    RING_STROKE: Math.round(14 * sc),
+    RING_CIRCUMFERENCE: 2 * Math.PI * Math.round(95 * sc),
+    CENTER_SIZE: Math.round(160 * sc),
+    DIGIT_SIZE: Math.round(52 * sc),
+  };
+}
+
+function CircleTimer({ timeLeft, total, phase, running }) {
   const { colors } = useTheme();
+  const { RING_SIZE, RING_RADIUS, RING_STROKE, RING_CIRCUMFERENCE, CENTER_SIZE, DIGIT_SIZE } = useRingScale();
   const isWork = phase === 'work';
   const isCountdown = phase === 'countdown';
   const ringColor = isCountdown ? COUNTDOWN_COLOR : isWork ? colors.primary : colors.rest;
   const pulse = useRef(new Animated.Value(1)).current;
+  const dashOffset = useRef(new Animated.Value(0)).current;
+  const prevTotalRef = useRef(total);
+  const prevTimeLeftRef = useRef(timeLeft);
+
+  useEffect(() => {
+    const totalChanged = total !== prevTotalRef.current;
+    const timeJumpedUp = timeLeft > prevTimeLeftRef.current;
+    prevTotalRef.current = total;
+    prevTimeLeftRef.current = timeLeft;
+
+    if (totalChanged || timeJumpedUp) {
+      dashOffset.stopAnimation();
+      dashOffset.setValue(RING_CIRCUMFERENCE * (1 - (total > 0 ? timeLeft / total : 0)));
+    }
+
+    if (!running) {
+      dashOffset.stopAnimation();
+      return;
+    }
+
+    Animated.timing(dashOffset, {
+      toValue: RING_CIRCUMFERENCE,
+      duration: timeLeft * 1000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [timeLeft, total, running]);
 
   useEffect(() => {
     if (timeLeft <= 3 && timeLeft > 0) {
@@ -41,14 +86,33 @@ function CircleTimer({ timeLeft, total, phase }) {
   }, [timeLeft, pulse]);
 
   const circleCenter = isCountdown ? '#EEF2FF' : isWork ? colors.phaseWork : colors.phaseRest;
+  const cx = RING_SIZE / 2;
+  const cy = RING_SIZE / 2;
 
   return (
     <Animated.View style={[timerStyles.circleContainer, { transform: [{ scale: pulse }] }]}>
-      <View style={[timerStyles.ring, { borderColor: ringColor + '33' }]}>
-        <View style={[timerStyles.ringInner, { borderColor: ringColor }]}>
-          <View style={[timerStyles.circleCenter, { backgroundColor: circleCenter }]}>
-            <Text style={[timerStyles.timerDigits, { color: ringColor }]}>{formatTime(timeLeft)}</Text>
-          </View>
+      <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width={RING_SIZE} height={RING_SIZE} style={StyleSheet.absoluteFill}>
+          <Circle
+            cx={cx} cy={cy} r={RING_RADIUS}
+            strokeWidth={RING_STROKE}
+            stroke={ringColor + '33'}
+            fill="none"
+          />
+          <AnimatedCircle
+            cx={cx} cy={cy} r={RING_RADIUS}
+            strokeWidth={RING_STROKE}
+            stroke={ringColor}
+            fill="none"
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            rotation="-90"
+            origin={`${cx}, ${cy}`}
+          />
+        </Svg>
+        <View style={[timerStyles.circleCenter, { backgroundColor: circleCenter, width: CENTER_SIZE, height: CENTER_SIZE, borderRadius: CENTER_SIZE / 2 }]}>
+          <Text style={[timerStyles.timerDigits, { color: ringColor, fontSize: DIGIT_SIZE }]}>{formatTime(timeLeft)}</Text>
         </View>
       </View>
     </Animated.View>
@@ -154,8 +218,9 @@ function TappableStatCard({ value, label, cardStyle, valueStyle, labelStyle, zIn
 
 function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets, requestReview }) {
   const { colors, isDark } = useTheme();
+  const { sc } = useRingScale();
   const { settings } = useSettings();
-  const doneStyles = buildDoneStyles(colors, isDark);
+  const doneStyles = buildDoneStyles(colors, isDark, sc);
   const iconScale = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0.3)).current;
   const glowScale = useRef(new Animated.Value(0.85)).current;
@@ -236,7 +301,7 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets, 
               contentFit="cover"
             />
           ) : (
-            <EmojiIcon emoji="🥳" size={60} />
+            <EmojiIcon emoji="🥳" size={Math.round(60 * sc)} />
           )}
         </Animated.View>
       </View>
@@ -268,16 +333,75 @@ function WorkoutDoneScreen({ config, sequence, total, onDone, onRepeat, insets, 
   );
 }
 
+function TimerVolumeSlider({ value, onChange, onRelease, color }) {
+  const [trackW, setTrackW] = useState(0);
+  const trackWRef = useRef(0);
+  const trackPageXRef = useRef(0);
+  const viewRef = useRef(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const onReleaseRef = useRef(onRelease);
+  onReleaseRef.current = onRelease;
+
+  const clamp = (pageX) => {
+    const x = pageX - trackPageXRef.current;
+    onChangeRef.current(Math.max(0, Math.min(1, x / trackWRef.current)));
+  };
+
+  const pan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
+    onPanResponderGrant: e => { if (trackWRef.current) clamp(e.nativeEvent.pageX); },
+    onPanResponderMove: e => { if (trackWRef.current) clamp(e.nativeEvent.pageX); },
+    onPanResponderRelease: () => { onReleaseRef.current?.(); },
+    onPanResponderTerminate: () => { onReleaseRef.current?.(); },
+  })).current;
+
+  return (
+    <View
+      ref={viewRef}
+      {...pan.panHandlers}
+      style={{ height: 36, justifyContent: 'center' }}
+      onLayout={() => {
+        viewRef.current?.measure((_x, _y, w, _h, pageX) => {
+          trackWRef.current = w;
+          trackPageXRef.current = pageX;
+          setTrackW(w);
+        });
+      }}
+    >
+      <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+        <View style={{ height: '100%', width: `${value * 100}%`, backgroundColor: color, borderRadius: 2 }} />
+      </View>
+      {trackW > 0 && (
+        <View style={{
+          position: 'absolute',
+          width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff',
+          left: value * trackW - 10, top: 8,
+          shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.2, shadowRadius: 3, elevation: 3,
+        }} />
+      )}
+    </View>
+  );
+}
+
 export default function TimerScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { config } = route.params;
   const { logSession } = useWorkout();
   const { settings } = useSettings();
   const { colors, isDark } = useTheme();
-  const styles = buildTimerStyles(colors);
+  const { sc } = useRingScale();
+  const styles = buildTimerStyles(colors, sc);
   const sequence = useMemo(() => buildSequence(config), []);
   const total = totalDuration(sequence);
   const startTime = useRef(Date.now());
+  const [localVolume, setLocalVolume] = useState(settings.soundVolume);
+  const localVolumeRef = useRef(localVolume);
+  localVolumeRef.current = localVolume;
 
   useEffect(() => {
     if (settings.keepAwakeEnabled) {
@@ -294,7 +418,7 @@ export default function TimerScreen({ navigation, route }) {
     isFifthWorkoutRef.current = count === 5 || count === 25;
   }, [config, logSession]);
 
-  const { currentStep, stepIndex, timeLeft, running, finished, start, pause, reset, skip } = useTimer(sequence, handleComplete, true);
+  const { currentStep, stepIndex, timeLeft, running, finished, start, pause, reset, skip } = useTimer(sequence, handleComplete, true, localVolumeRef);
 
   // TTS: speak phase name when the step changes
   useEffect(() => {
@@ -302,18 +426,18 @@ export default function TimerScreen({ navigation, route }) {
     const step = sequence[stepIndex];
     if (!step) return;
     if (step.phase === 'rest') {
-      playDing(settings.soundVolume, settings.mixWithMusic ?? true);
-      Speech.speak('Rest', { rate: 0.9 });
+      playDing(localVolumeRef.current, settings.mixWithMusic ?? true);
+      Speech.speak('Rest', { rate: 0.9, volume: localVolumeRef.current });
     } else if (step.phase === 'work' && step.label && step.label !== 'WORK') {
-      playDing(settings.soundVolume, settings.mixWithMusic ?? true);
-      Speech.speak(step.label, { rate: 0.9 });
+      playDing(localVolumeRef.current, settings.mixWithMusic ?? true);
+      Speech.speak(step.label, { rate: 0.9, volume: localVolumeRef.current });
     }
   }, [stepIndex, sequence, settings.ttsEnabled]);
 
   // TTS: count down the last 3 seconds before each transition
   useEffect(() => {
     if (!settings.ttsEnabled || !running || timeLeft < 1 || timeLeft > 3) return;
-    Speech.speak(String(timeLeft), { rate: 1.1 });
+    Speech.speak(String(timeLeft), { rate: 1.1, volume: localVolumeRef.current });
   }, [timeLeft, running, settings.ttsEnabled]);
 
   useEffect(() => {
@@ -374,84 +498,99 @@ export default function TimerScreen({ navigation, route }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <Text
-        style={[styles.roundText, styles.getReadyText, { color: accentColor }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.5}
-      >
-        {isCountdown ? 'GET READY!' : isWork ? (currentStep?.label ?? 'WORK') : 'REST'}
-      </Text>
-
-      <Text style={styles.roundText}>
-        {isCountdown ? '' : `Round ${currentStep?.round ?? '—'} of ${currentStep?.totalRounds ?? config.rounds}`}
-      </Text>
-
-      <View style={styles.progressDots}>
-        {workoutSequence.map((_, i) => (
-          <View key={i} style={[styles.dot, i < workoutStepIndex && styles.dotDone, i === workoutStepIndex && styles.dotActive]} />
-        ))}
-      </View>
-
-      <CircleTimer timeLeft={timeLeft} total={currentStep?.duration ?? 1} phase={currentStep?.phase ?? 'work'} />
-
-      <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>TOTAL TIME REMAINING</Text>
-        <Text style={styles.totalValue}>{formatTime(totalSecondsLeft)}</Text>
-      </View>
-
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.ctrlBtn}
-          onPress={() => Alert.alert(
-            'Reset Workout',
-            'Are you sure you want to reset the workout?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Reset', style: 'destructive', onPress: reset },
-            ]
-          )}
-          activeOpacity={0.7}
+      <View style={styles.body}>
+        <Text
+          style={[styles.roundText, styles.getReadyText, { color: accentColor }]}
+          numberOfLines={1}
         >
-          <Ionicons name="refresh" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.playBtn, { backgroundColor: accentColor }]}
-          onPress={running ? pause : start}
-          activeOpacity={0.85}
-        >
-          <Ionicons name={running ? 'pause' : 'play'} size={32} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.ctrlBtn} onPress={skip} activeOpacity={0.7}>
-          <Ionicons name="play-skip-forward" size={24} color={colors.text} />
-        </TouchableOpacity>
+          {isCountdown ? 'GET READY!' : isWork ? (currentStep?.label ?? 'WORK') : 'REST'}
+        </Text>
+
+        <Text style={styles.roundText}>
+          {isCountdown ? '' : `Round ${currentStep?.round ?? '—'} of ${currentStep?.totalRounds ?? config.rounds}`}
+        </Text>
+
+        <View style={styles.progressDots}>
+          {workoutSequence.map((_, i) => (
+            <View key={i} style={[styles.dot, i < workoutStepIndex && styles.dotDone, i === workoutStepIndex && styles.dotActive]} />
+          ))}
+        </View>
+
+        <CircleTimer timeLeft={timeLeft} total={currentStep?.duration ?? 1} phase={currentStep?.phase ?? 'work'} running={running} />
+
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>TOTAL TIME REMAINING</Text>
+          <Text style={styles.totalValue}>{formatTime(totalSecondsLeft)}</Text>
+        </View>
+
+        <View style={styles.controls}>
+          <TouchableOpacity
+            style={styles.ctrlBtn}
+            onPress={() => Alert.alert(
+              'Reset Workout',
+              'Are you sure you want to reset the workout?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset', style: 'destructive', onPress: reset },
+              ]
+            )}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={Math.round(24 * sc)} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.playBtn, { backgroundColor: accentColor }]}
+            onPress={running ? pause : start}
+            activeOpacity={0.85}
+          >
+            <Ionicons name={running ? 'pause' : 'play'} size={Math.round(32 * sc)} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={skip} activeOpacity={0.7}>
+            <Ionicons name="play-skip-forward" size={Math.round(24 * sc)} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.volumeRow}>
+          <Ionicons name="volume-low" size={16} color={colors.textSecondary} />
+          <View style={{ flex: 1 }}>
+            <TimerVolumeSlider
+              value={localVolume}
+              onChange={setLocalVolume}
+              onRelease={() => { if (settings.soundEnabled) playDing(localVolumeRef.current, settings.mixWithMusic ?? true); }}
+              color={accentColor}
+            />
+          </View>
+          <Ionicons name="volume-high" size={16} color={colors.textSecondary} />
+        </View>
+        {settings.ttsEnabled && (
+          <Text style={styles.ttsNote}>Voice volume uses device buttons</Text>
+        )}
       </View>
     </View>
   );
 }
 
-// Static styles unaffected by theme (layout/geometry only)
 const timerStyles = StyleSheet.create({
   circleContainer: { alignItems: 'center', marginTop: spacing.lg },
-  ring: { width: 220, height: 220, borderRadius: 110, borderWidth: 20, alignItems: 'center', justifyContent: 'center' },
-  ringInner: { width: 180, height: 180, borderRadius: 90, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
-  circleCenter: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center' },
-  timerDigits: { fontSize: 52, fontWeight: '800', letterSpacing: -2 },
+  circleCenter: { alignItems: 'center', justifyContent: 'center' },
+  timerDigits: { fontWeight: '800', letterSpacing: -2 },
 });
 
-function buildTimerStyles(c) {
+function buildTimerStyles(c, sc = 1) {
+  const s = (n) => Math.round(n * sc);
   return StyleSheet.create({
     safe: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    body: sc > 1 ? { flex: 1, justifyContent: 'center', paddingBottom: '20%' } : {},
     navBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm,
     },
     closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
     closeIcon: { fontSize: 20, color: c.text },
-    workoutName: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: c.text, paddingHorizontal: spacing.sm },
+    workoutName: { flex: 1, textAlign: 'center', fontSize: s(16), fontWeight: '700', color: c.text, paddingHorizontal: spacing.sm },
 
-    roundText: { textAlign: 'center', fontSize: 14, color: c.textSecondary, fontWeight: '600', marginTop: spacing.sm, height: 20, lineHeight: 20 },
-    getReadyText: { fontSize: 44, fontWeight: '900', color: COUNTDOWN_COLOR, letterSpacing: -1, marginTop: spacing.xl, height: 52, lineHeight: 52 },
+    roundText: { textAlign: 'center', fontSize: s(14), color: c.textSecondary, fontWeight: '600', marginTop: spacing.sm, height: s(20), lineHeight: s(20) },
+    getReadyText: { fontSize: s(44), fontWeight: '900', color: COUNTDOWN_COLOR, letterSpacing: -1, marginTop: spacing.xl, height: s(52), lineHeight: s(52) },
 
     progressDots: {
       flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap',
@@ -462,31 +601,34 @@ function buildTimerStyles(c) {
     dotActive: { backgroundColor: c.primary, width: 12 },
 
     totalCard: { alignItems: 'center', marginTop: spacing.lg },
-    totalLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, letterSpacing: 1.2, marginBottom: 4 },
-    totalValue: { fontSize: 28, fontWeight: '800', color: c.text, letterSpacing: -1 },
+    totalLabel: { fontSize: s(11), fontWeight: '700', color: c.textSecondary, letterSpacing: 1.2, marginBottom: 4 },
+    totalValue: { fontSize: s(28), fontWeight: '800', color: c.text, letterSpacing: -1 },
 
-    controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xl, marginTop: spacing.xl },
-    ctrlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.sm },
-    playBtn: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', ...shadow.md },
+    controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(spacing.xl), marginTop: spacing.xl },
+    volumeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, width: s(256), alignSelf: 'center', marginTop: spacing.md },
+    ttsNote: { textAlign: 'center', fontSize: s(11), color: c.textMuted, marginTop: 4 },
+    ctrlBtn: { width: s(56), height: s(56), borderRadius: s(28), backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.sm },
+    playBtn: { width: s(80), height: s(80), borderRadius: s(40), alignItems: 'center', justifyContent: 'center', ...shadow.md },
   });
 }
 
-function buildDoneStyles(c, isDark) {
+function buildDoneStyles(c, isDark, sc = 1) {
+  const s = (n) => Math.round(n * sc);
   return StyleSheet.create({
     screen: {
       flex: 1, backgroundColor: c.phaseDone,
       alignItems: 'center', justifyContent: 'space-evenly',
       paddingHorizontal: spacing.lg,
     },
-    iconSection: { alignItems: 'center', justifyContent: 'center', width: 200, height: 200 },
+    iconSection: { alignItems: 'center', justifyContent: 'center', width: s(200), height: s(200) },
     glowRing: {
       position: 'absolute',
-      width: 190, height: 190, borderRadius: 95,
+      width: s(190), height: s(190), borderRadius: s(95),
       backgroundColor: AMBER + '28',
       borderWidth: 2, borderColor: AMBER + '55',
     },
     iconCircle: {
-      width: 160, height: 160, borderRadius: 80,
+      width: s(160), height: s(160), borderRadius: s(80),
       backgroundColor: AMBER,
       alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden',
@@ -497,40 +639,40 @@ function buildDoneStyles(c, isDark) {
       elevation: 14,
     },
     gifImage: {
-      width: 160, height: 160,
+      width: s(160), height: s(160),
     },
     title: {
-      fontSize: 36, fontWeight: '900', color: c.text,
-      textAlign: 'center', letterSpacing: 2, lineHeight: 44,
+      fontSize: s(36), fontWeight: '900', color: c.text,
+      textAlign: 'center', letterSpacing: 2, lineHeight: s(44),
       marginBottom: spacing.xs,
     },
-    subtitle: { fontSize: 15, color: c.textSecondary, fontWeight: '600', textAlign: 'center', marginTop: 4 },
+    subtitle: { fontSize: s(15), color: c.textSecondary, fontWeight: '600', textAlign: 'center', marginTop: 4 },
     quote: {
-      fontSize: 14, color: c.textSecondary, fontStyle: 'italic',
-      textAlign: 'center', paddingHorizontal: spacing.lg, lineHeight: 22,
+      fontSize: s(14), color: c.textSecondary, fontStyle: 'italic',
+      textAlign: 'center', paddingHorizontal: spacing.lg, lineHeight: s(22),
     },
-    statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
+    statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%', maxWidth: 520, alignSelf: 'center' },
     statCard: {
       backgroundColor: isDark ? c.surface : '#fff', borderRadius: radius.md,
       paddingVertical: spacing.md + 6, alignItems: 'center', borderWidth: 1.5, borderColor: AMBER,
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 4,
     },
     statCardMid: { zIndex: 1 },
-    statValue: { fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -1 },
-    statLabel: { fontSize: 10, fontWeight: '700', color: c.textSecondary, marginTop: 4, letterSpacing: 1.2 },
+    statValue: { fontSize: s(21), fontWeight: '800', color: c.text, letterSpacing: -1 },
+    statLabel: { fontSize: s(10), fontWeight: '700', color: c.textSecondary, marginTop: 4, letterSpacing: 1.2 },
 
-    btns: { width: '100%', alignItems: 'center', gap: spacing.sm },
+    btns: { width: '100%', maxWidth: 520, alignSelf: 'center', alignItems: 'center', gap: spacing.sm },
     doneBtn: {
       width: '100%', backgroundColor: AMBER, borderRadius: radius.full,
-      paddingVertical: spacing.md, alignItems: 'center',
+      paddingVertical: s(spacing.md), alignItems: 'center',
       shadowColor: AMBER,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.45,
       shadowRadius: 14,
       elevation: 10,
     },
-    doneBtnText: { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 1 },
+    doneBtnText: { color: '#fff', fontSize: s(17), fontWeight: '900', letterSpacing: 1 },
     repeatBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.xl },
-    repeatBtnText: { fontSize: 15, color: c.textSecondary, fontWeight: '600' },
+    repeatBtnText: { fontSize: s(15), color: c.textSecondary, fontWeight: '600' },
   });
 }

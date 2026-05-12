@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, StatusBar, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,7 +82,8 @@ export default function YourWorkoutsScreen({ navigation, route }) {
   const { savedWorkouts, loadWorkouts } = useWorkout();
   const { settings } = useSettings();
   const { colors, isDark } = useTheme();
-  const styles = buildStyles(colors);
+  const { width } = useWindowDimensions();
+  const styles = buildStyles(colors, width >= 600);
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadWorkouts);
@@ -149,7 +150,7 @@ export default function YourWorkoutsScreen({ navigation, route }) {
   );
 }
 
-function buildStyles(c) {
+function buildStyles(c, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     navBar: {
@@ -160,7 +161,7 @@ function buildStyles(c) {
     backIcon: { fontSize: 30, color: c.text, fontWeight: '300', marginTop: -2 },
     navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
     count: { fontSize: 14, color: c.textSecondary, minWidth: 40, textAlign: 'right' },
-    list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
+    list: { paddingHorizontal: isTablet ? '10%' : '5%', paddingBottom: spacing.xl * 2, gap: spacing.sm, paddingTop: isTablet ? '5%' : 0 },
 
     card: {
       borderRadius: radius.lg, ...shadow.sm,

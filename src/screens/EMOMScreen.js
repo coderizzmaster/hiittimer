@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, radius, shadow } from '../utils/theme';
@@ -30,7 +30,8 @@ export default function EMOMScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { settings } = useSettings();
-  const styles = buildStyles(colors);
+  const { width } = useWindowDimensions();
+  const styles = buildStyles(colors, width >= 600);
 
   const [exercises, setExercises] = useState([newExercise()]);
   const [rounds, setRounds] = useState(4);
@@ -150,7 +151,7 @@ export default function EMOMScreen({ navigation }) {
   );
 }
 
-function buildStyles(c) {
+function buildStyles(c, isTablet = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.background },
     navBar: {
@@ -161,7 +162,7 @@ function buildStyles(c) {
     backIcon: { fontSize: 30, color: c.text, fontWeight: '300', marginTop: -2 },
     navTitle: { fontSize: 17, fontWeight: '600', color: c.text },
 
-    container: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2 },
+    container: { paddingHorizontal: isTablet ? '10%' : '5%', paddingBottom: spacing.xl * 2, paddingTop: isTablet ? '5%' : 0 },
 
     pageTitle: { fontSize: 22, fontWeight: '800', color: c.text, marginBottom: spacing.xs },
     pageSub: { fontSize: 13, color: c.textSecondary, marginBottom: spacing.lg, lineHeight: 18 },
